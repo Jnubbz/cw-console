@@ -1,0 +1,5 @@
+dist/
+*.exe
+/cw-decoder
+.DS_Store
+*.test
