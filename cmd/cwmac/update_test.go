@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -47,6 +48,9 @@ func makeUpdate(t *testing.T, version string, files []upFile, corrupt string) []
 }
 
 func setupSlots(t *testing.T, slot string, trial bool) (boot, parts string) {
+	if runtime.GOOS != "linux" {
+		t.Skip("the Pi box's A/B update runs on Linux")
+	}
 	dir := t.TempDir()
 	boot, parts = filepath.Join(dir, "boot"), filepath.Join(dir, "parts")
 	os.MkdirAll(filepath.Join(boot, "a"), 0o755)

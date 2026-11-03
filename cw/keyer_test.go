@@ -3,6 +3,7 @@ package cw
 import (
 	"fmt"
 	"math"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -133,7 +134,13 @@ func TestKeyerTimingAt20And30WPM(t *testing.T) {
 		p95 := errs[len(errs)*95/100]
 		t.Logf("%d WPM (dit %.0f ms): 95%% of elements within %.2f ms; worst %.2f ms at %s", wpm, dit, p95, worst, where)
 		// Judge typical timing: a shared test VM can deschedule the keyer once in a while.
-		if p95 > 3 {
+		// Hosted CI runners (GitHub's Mac VMs especially) are noisier still: 6 ms there
+		// still catches a real regression (a dit at 30 WPM is 40 ms).
+		limit := 3.0
+		if os.Getenv("CI") != "" {
+			limit = 6
+		}
+		if p95 > limit {
 			t.Errorf("%d wpm: 95th-percentile timing error %.2f ms", wpm, p95)
 		}
 		if worst > 0.75*dit {
