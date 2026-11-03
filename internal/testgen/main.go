@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"cwdecoder/cw"
+	"github.com/Jnubbz/cw-console/cw"
 )
 
 type rng struct{ s uint64 }

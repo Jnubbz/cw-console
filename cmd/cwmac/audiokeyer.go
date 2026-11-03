@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"cwdecoder/cw"
+	"github.com/Jnubbz/cw-console/cw"
 )
 
 const (

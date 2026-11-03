@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"cwdecoder/cw"
+	"github.com/Jnubbz/cw-console/cw"
 )
 
 const engineDir = "../third_party/deepcw-engine"

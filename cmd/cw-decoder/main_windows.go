@@ -17,9 +17,9 @@ import (
 	"time"
 	"unsafe"
 
-	"cwdecoder/cw"
-	"cwdecoder/deepcw"
-	"cwdecoder/ops"
+	"github.com/Jnubbz/cw-console/cw"
+	"github.com/Jnubbz/cw-console/deepcw"
+	"github.com/Jnubbz/cw-console/ops"
 )
 
 func init() { runtime.LockOSThread() } // all Win32 UI calls on one OS thread

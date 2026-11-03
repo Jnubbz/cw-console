@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"strings"
 
-	"cwdecoder/cw"
+	"github.com/Jnubbz/cw-console/cw"
 )
 
 // BenchReport times the decoder on this computer and describes what every speed

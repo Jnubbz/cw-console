@@ -19,7 +19,7 @@ import (
 	"strings"
 	"sync"
 
-	"cwdecoder/ops"
+	"github.com/Jnubbz/cw-console/ops"
 )
 
 var catBaud = 38400 // Yaesu

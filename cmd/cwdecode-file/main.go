@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"cwdecoder/cw"
-	"cwdecoder/deepcw"
+	"github.com/Jnubbz/cw-console/cw"
+	"github.com/Jnubbz/cw-console/deepcw"
 )
 
 func main() {
@@ -77,20 +77,7 @@ func main() {
 		deepcw.SetThreads(n)
 		t0 := time.Now()
 		deepcw.TailGuardSecs = *guard
-		var focus *deepcw.Focus
-		if *focusW > 0 {
-			p := *pitch
-			if p == 0 {
-				head := s
-				if n := int(rate) * 60; len(head) > n {
-					head = head[:n]
-				}
-				f, _ := cw.FindPitch(head, float32(rate), 300, 1200, 5)
-				p = float64(f)
-			}
-			focus = &deepcw.Focus{Pitch: p, Width: *focusW, Taper: deepcw.FocusTaper, Floor: *focusFloor}
-		}
-		text, err := deepcw.DecodeStream(m, s, int(rate), 2, focus)
+		text, err := decodeAI(m, s, rate, float32(*pitch), *focusW, *focusFloor)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -102,31 +89,51 @@ func main() {
 		fmt.Println(text)
 		return
 	}
-	sr := float32(rate)
-	p := float32(*pitch)
-	if p == 0 {
-		head := s
-		if n := int(sr * 60); len(head) > n {
-			head = head[:n]
-		}
-		p, _ = cw.FindPitch(head, sr, 300, 1200, 5)
+	text, p, wpm := decodeClassic(s, rate, float32(*pitch), float32(*sens), !*nexus)
+	if !*quiet {
+		fmt.Fprintf(os.Stderr, "pitch %d Hz, ~%d WPM\n", int(p), wpm)
 	}
-	d := cw.NewStreamDecoder(sr, p)
-	d.SetSensitivity(float32(*sens))
-	d.SetImproved(!*nexus)
+	fmt.Println(text)
+}
+
+// findPitch picks the strongest tone between 300 and 1200 Hz in the first minute.
+func findPitch(s []float32, rate uint32) float32 {
+	head := s
+	if n := int(rate) * 60; len(head) > n {
+		head = head[:n]
+	}
+	p, _ := cw.FindPitch(head, float32(rate), 300, 1200, 5)
+	return p
+}
+
+// decodeAI runs the DeepCW decoder over a whole recording. pitch 0 = auto; focusW 0 = whole band.
+func decodeAI(m *deepcw.Model, s []float32, rate uint32, pitch float32, focusW, focusFloor float64) (string, error) {
+	var focus *deepcw.Focus
+	if focusW > 0 {
+		if pitch == 0 {
+			pitch = findPitch(s, rate)
+		}
+		focus = &deepcw.Focus{Pitch: float64(pitch), Width: focusW, Taper: deepcw.FocusTaper, Floor: focusFloor}
+	}
+	return deepcw.DecodeStream(m, s, int(rate), 2, focus)
+}
+
+// decodeClassic runs the classic (Nexus) decoder the way the apps do: one second at a time,
+// then 1.5 s of silence to flush the last word. Returns the text, the pitch used and the WPM.
+func decodeClassic(s []float32, rate uint32, pitch, sens float32, improved bool) (string, float32, int) {
+	sr := float32(rate)
+	if pitch == 0 {
+		pitch = findPitch(s, rate)
+	}
+	d := cw.NewStreamDecoder(sr, pitch)
+	d.SetSensitivity(sens)
+	d.SetImproved(improved)
 	var out strings.Builder
 	for i := 0; i < len(s); i += int(sr) {
-		e := i + int(sr)
-		if e > len(s) {
-			e = len(s)
-		}
-		d.Push(s[i:e])
+		d.Push(s[i:min(i+int(sr), len(s))])
 		out.WriteString(d.TakeText())
 	}
 	d.Push(make([]float32, int(sr*1.5)))
 	out.WriteString(d.TakeText())
-	if !*quiet {
-		fmt.Fprintf(os.Stderr, "pitch %d Hz, ~%d WPM\n", int(p), d.WPM())
-	}
-	fmt.Println(strings.TrimSpace(out.String()))
+	return strings.TrimSpace(out.String()), pitch, int(d.WPM())
 }

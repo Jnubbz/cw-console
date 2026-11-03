@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"cwdecoder/cw"
+	"github.com/Jnubbz/cw-console/cw"
 )
 
 // CW_PROFILE=1 go test -run Profile -v ./deepcw

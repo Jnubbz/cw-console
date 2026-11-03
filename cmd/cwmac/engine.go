@@ -14,9 +14,9 @@ import (
 	"sync"
 	"time"
 
-	"cwdecoder/cw"
-	"cwdecoder/deepcw"
-	"cwdecoder/ops"
+	"github.com/Jnubbz/cw-console/cw"
+	"github.com/Jnubbz/cw-console/deepcw"
+	"github.com/Jnubbz/cw-console/ops"
 )
 
 const (

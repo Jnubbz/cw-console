@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"cwdecoder/cw"
+	"github.com/Jnubbz/cw-console/cw"
 )
 
 // Same 15 s noisy window through every speed path: plain/1 thread is the reference.

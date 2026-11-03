@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"cwdecoder/cw"
-	"cwdecoder/ops"
+	"github.com/Jnubbz/cw-console/cw"
+	"github.com/Jnubbz/cw-console/ops"
 )
 
 const deadManAfter = 5 * time.Second // no page connected this long -> stop sending

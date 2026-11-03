@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"cwdecoder/deepcw"
-	"cwdecoder/ops"
+	"github.com/Jnubbz/cw-console/deepcw"
+	"github.com/Jnubbz/cw-console/ops"
 )
 
 // aiLagLocked: how far decoded text trails the audio with the current decoder.

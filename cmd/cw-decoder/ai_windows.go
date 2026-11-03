@@ -15,7 +15,7 @@ import (
 	"time"
 	"unsafe"
 
-	"cwdecoder/deepcw"
+	"github.com/Jnubbz/cw-console/deepcw"
 )
 
 const (

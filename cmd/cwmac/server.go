@@ -21,7 +21,7 @@ import (
 	"syscall"
 	"time"
 
-	"cwdecoder/deepcw"
+	"github.com/Jnubbz/cw-console/deepcw"
 )
 
 //go:embed web/index.html web/fonts web/img

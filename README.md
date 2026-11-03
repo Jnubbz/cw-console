@@ -55,7 +55,10 @@ go run ./cmd/cwmac          # on a Mac or Linux desktop: opens http://localhost:
 The AI decoder needs `third_party/deepcw-engine/model.onnx` and `model.onnx.json` in a
 `deepcw` folder next to the program (the build script puts them there).
 
-Tests: `go test ./...` (the AI decoder's tests take a couple of minutes).
+Tests: `go test ./...` (the AI decoder's tests take a couple of minutes; `-short` skips the
+slowest). `testdata/samples/` holds four real-world-style recordings (clean 20 WPM, noisy,
+35 WPM, QRM) that both decoders must copy exactly. CI runs everything on Linux, Mac and
+Windows for each pull request and builds the zips; pushing a `v*` tag publishes a release.
 
 ## Layout
 
@@ -68,6 +71,7 @@ Tests: `go test ./...` (the AI decoder's tests take a couple of minutes).
 | `cmd/cwmac/` | Mac app and the Pi box (web page in `web/`) |
 | `cmd/cwdecode-file/` | Decode a WAV file from the command line |
 | `internal/testgen/` | Makes test recordings |
+| `testdata/samples/` | Sample recordings with known text (decoder regression tests) |
 | `packaging/` | Mac app bundle files and the Windows readme |
 
 ## Installing a build

@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # ubuntu: AVX2 kernels, Linux/Pi code. macos (Apple Silicon): NEON kernels, Mac app.
+        # windows: the Windows app and the shared packages.
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Vet
+        if: runner.os != 'Windows'
+        run: go vet ./cw ./deepcw ./ops ./cmd/cwdecode-file ./cmd/cwmac
+      - name: Test (includes the AI decoder and the sample recordings)
+        if: runner.os != 'Windows'
+        run: go test -timeout 20m ./...
+      - name: Test shared packages and build the Windows app
+        if: runner.os == 'Windows'
+        run: |
+          go test -timeout 20m ./cw ./deepcw ./ops ./cmd/cwdecode-file
+          go build -ldflags "-H windowsgui" -o CW-Decoder.exe ./cmd/cw-decoder
+
+  package:
+    name: Build Windows and Mac packages
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build
+        run: VERSION="dev-${GITHUB_SHA::7}" scripts/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CW-Console-packages
+          path: dist/*.zip
+          if-no-files-found: error

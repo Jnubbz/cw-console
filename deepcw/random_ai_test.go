@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"cwdecoder/cw"
+	"github.com/Jnubbz/cw-console/cw"
 )
 
 func editDist(a, b string) int {

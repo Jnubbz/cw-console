@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"cwdecoder/cw"
+	"github.com/Jnubbz/cw-console/cw"
 )
 
 // cwSender: what the sender (tx.go) drives: the box's own keyer (cw.Keyer, timing a key

@@ -1,0 +1,28 @@
+name: Release
+
+# Push a tag like v0.2.0 to test, build the Windows and Mac zips, and publish a GitHub release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Test
+        run: go test -timeout 20m ./...
+      - name: Build
+        run: VERSION="${GITHUB_REF_NAME#v}" scripts/build.sh
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.zip \
+            --title "CW Console $GITHUB_REF_NAME" --generate-notes

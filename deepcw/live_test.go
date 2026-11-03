@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"cwdecoder/cw"
+	"github.com/Jnubbz/cw-console/cw"
 )
 
 // Feed a recording in real-time-sized chunks (fast-forwarded) through Live and check the
