@@ -23,14 +23,14 @@ jobs:
           go-version-file: go.mod
       - name: Vet
         if: runner.os != 'Windows'
-        run: go vet ./cw ./deepcw ./ops ./rig/... ./cmd/cwdecode-file ./cmd/cwmac
+        run: go vet ./cw ./deepcw ./ops ./rig/... ./internal/... ./cmd/cwdecode-file ./cmd/cwmac
       - name: Test (includes the AI decoder and the sample recordings)
         if: runner.os != 'Windows'
         run: go test -timeout 20m ./...
       - name: Test shared packages and build the Windows app
         if: runner.os == 'Windows'
         run: |
-          go test -timeout 20m ./cw ./deepcw ./ops ./rig/... ./cmd/cwdecode-file
+          go test -timeout 20m ./cw ./deepcw ./ops ./rig/... ./internal/... ./cmd/cwdecode-file ./cmd/cw-decoder
           go build -ldflags "-H windowsgui" -o CW-Decoder.exe ./cmd/cw-decoder
 
   package:

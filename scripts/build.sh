@@ -27,6 +27,11 @@ APP="$M/CW Decoder.app/Contents"
 mkdir -p "$APP/MacOS" "$APP/Resources"
 GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.appVersion=$VER" -o "$APP/MacOS/cw-decoder" ./cmd/cwmac
 cp packaging/mac/Info.plist "$APP/Info.plist"
+if [[ "$VER" =~ ^[0-9]+\.[0-9]+\.([0-9]+) ]]; then # Finder's version: the release's
+  sed -i.bak -e "s#<key>CFBundleShortVersionString</key><string>[^<]*</string>#<key>CFBundleShortVersionString</key><string>${VER%%-*}</string>#" \
+    -e "s#<key>CFBundleVersion</key><string>[^<]*</string>#<key>CFBundleVersion</key><string>${BASH_REMATCH[1]}</string>#" "$APP/Info.plist"
+  rm -f "$APP/Info.plist.bak"
+fi
 model "$APP/Resources/deepcw"
 cp packaging/mac/README-Mac.txt packaging/mac/sign-and-notarize.sh "$M/"; cp LICENSE "$M/LICENSE.txt"; cp NOTICE.md "$M/"
 

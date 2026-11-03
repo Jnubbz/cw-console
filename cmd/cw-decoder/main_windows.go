@@ -86,6 +86,7 @@ var A app
 func px(v int) int32 { return int32(math.Round(float64(v) * A.scale)) }
 
 func main() {
+	updateStartup() // after an update: wait for the old copy to close; then look for new ones
 	enableVisualStyles()
 	pSetProcessDPIAware.Call()
 	icc := INITCOMMONCONTROLSEX{DwSize: 8, DwICC: 0x4 | 0x4000}
@@ -463,6 +464,7 @@ func stopCapture() {
 }
 
 func onTimer() {
+	updateTick()
 	txTick()
 	opsTick()
 	if !A.cap.running {

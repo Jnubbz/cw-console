@@ -1,12 +1,22 @@
 name: Release
 
-# Push a tag like v0.2.0 to test, build the Windows and Mac zips, and publish a GitHub release.
+# Every merge to main: test, build the Windows and Mac zips, sign latest.json, and publish
+# release v0.2.<run number>. The apps find it within 6 hours (or with Check for updates)
+# and offer "Install and restart".
+#
+# Needs the repository secret UPDATE_SIGNING_KEY: the Ed25519 private key (PEM) whose
+# public half is selfupdate.PublicKey. Without it the release isn't published.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -16,13 +26,25 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Version
+        run: echo "VERSION=0.2.${{ github.run_number }}" >> "$GITHUB_ENV"
       - name: Test
         run: go test -timeout 20m ./...
       - name: Build
-        run: VERSION="${GITHUB_REF_NAME#v}" scripts/build.sh
-      - name: Publish release
+        run: scripts/build.sh
+      - name: Sign the manifest
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          NOTES=$(git log -1 --format=%s)
+          go run ./internal/signmanifest -version "$VERSION" \
+            -base "https://github.com/${{ github.repository }}/releases/download/v$VERSION" \
+            -notes "$NOTES" -out dist \
+            darwin-arm64=dist/CW-Decoder-Mac.zip windows-amd64=dist/CW-Decoder-Windows.zip
+      - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/*.zip \
-            --title "CW Console $GITHUB_REF_NAME" --generate-notes
+          gh release create "v$VERSION" dist/CW-Decoder-Mac.zip dist/CW-Decoder-Windows.zip \
+            dist/latest.json dist/latest.json.sig \
+            --title "CW Console $VERSION" --generate-notes --latest

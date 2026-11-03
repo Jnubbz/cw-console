@@ -93,6 +93,21 @@ everywhere in every US HF band), and reads the SWR meter. Esc or Stop ends it; t
 frequency, mode, power, split, clarifier and break-in are always put back. Only sweep where
 your license lets you transmit, and listen first.
 
+## Updates
+
+Every merge to `main` publishes a release (`v0.2.<build>`, `.github/workflows/release.yml`).
+The apps look for it a few seconds after starting and every 6 hours:
+
+- **Mac:** a bar says the new version is ready, with **Install and restart**; Setup >
+  Updates has **Check for updates**. It downloads, swaps the app in place and restarts; the
+  page reloads itself.
+- **Windows:** a Yes/No box; progress in the title bar; the app restarts into the new one.
+
+Releases are trusted only if signed: `latest.json` lists each zip's SHA-256 and is signed
+with an Ed25519 key kept as the repository secret `UPDATE_SIGNING_KEY`; the apps carry the
+public key (`internal/selfupdate`). A manifest with a bad signature, or a zip whose size or
+hash doesn't match it, is refused. Your settings, macros and logs aren't touched.
+
 ## Installing a build
 
 - **Windows:** unzip, run `CW-Decoder.exe` (keep the `deepcw` folder next to it). It
