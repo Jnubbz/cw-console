@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -144,6 +145,9 @@ func TestKeyerTimingAt20And30WPM(t *testing.T) {
 		limit := 3.0
 		if os.Getenv("CI") != "" {
 			limit = 6
+			if runtime.GOOS == "darwin" { // GitHub's virtual Macs have coarse timers (6.3 ms measured, alone)
+				limit = 10
+			}
 		}
 		if p95 > limit {
 			t.Errorf("%d wpm: 95th-percentile timing error %.2f ms", wpm, p95)
