@@ -448,6 +448,33 @@ func (s *server) routes() *http.ServeMux {
 		openBrowser(logDir()) // "open" shows the folder in Finder
 		w.WriteHeader(204)
 	}))
+	m.HandleFunc("/api/rig", s.guard(func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.e.rigState()) }))
+	m.HandleFunc("/api/rig/do", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		var q rigAction
+		if readJSON(r, &q) != nil {
+			http.Error(w, "bad json", 400)
+			return
+		}
+		writeJSON(w, s.e.doRig(q))
+	}))
+	m.HandleFunc("/api/rig/sweep", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			var q sweepRequest
+			if readJSON(r, &q) != nil {
+				http.Error(w, "bad json", 400)
+				return
+			}
+			if err := s.e.startSweep(q); err != nil {
+				writeJSON(w, map[string]string{"error": err.Error()})
+				return
+			}
+		}
+		writeJSON(w, s.e.sweepStatus())
+	}))
+	m.HandleFunc("/api/rig/sweep/stop", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		s.e.stopSweep()
+		w.WriteHeader(204)
+	}))
 	m.HandleFunc("/api/tx/stop", s.guard(func(w http.ResponseWriter, r *http.Request) {
 		s.e.mu.Lock()
 		s.e.tx.stopLocked()

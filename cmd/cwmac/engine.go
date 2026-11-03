@@ -58,6 +58,7 @@ type Settings struct {
 	RigPrevMode  string         `json:"rigPrevMode"`  // CAT mode code to go back to after FT8
 	RigPrevHz    int            `json:"rigPrevHz"`
 	CATType      string         `json:"catType"` // the radio's CAT commands: "" auto | "yaesu" | "kenwood"
+	CATPort      string         `json:"catPort"` // Yaesu CAT port (Enhanced COM); "" = find it
 	Park         string         `json:"park"`    // POTA reference being activated ("" = PARK from the macros, if set)
 	Radio        string         `json:"radio"`   // current radio profile
 	Radios       []RadioProfile `json:"radios"`  // the radio-specific settings, per radio
@@ -122,6 +123,8 @@ type Engine struct {
 	ft8            ft8Rx
 	ft8tx          ft8Tx
 	rig            rigCtl
+
+	rp rigPanel // FT-710 rig panel and SWR sweep (Mac and Pi box)
 }
 
 func newEngine(h *hub) *Engine {
