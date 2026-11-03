@@ -28,11 +28,15 @@ and A/B over-the-air updates. The box's Buildroot tree isn't in this repository 
 
 ## Roadmap: a full FT-710 console
 
+- [x] FT-710 **Rig** sheet (Mac and Pi box): VFO A/B, A⇄B, A→B, B→A, split (and Up 1/Up 2),
+      mode, clarifier RX/TX and offset, power, tuner
+- [x] SWR sweep: short 5-10 W CW carriers across a band on the key line, the radio's SWR
+      meter read over CAT at each step, plotted; the radio is put back exactly as it was
+- [ ] The Rig sheet on Windows (the Windows app is a native window; needs its own panel)
 - [ ] Bring the Windows and Mac apps up to the Pi box's features from one codebase
-      (CAT rig control, radio profiles, activation count, FT8 where it fits)
-- [ ] FT-710 VFO A/B, SPLIT and clarifier over CAT
-- [ ] SWR sweep over CAT (short low-power carriers across a band, plotted)
-- [ ] CW via the FT-710's own keyer (CAT `KY`) as an option next to DTR/RTS
+      (band switching over CAT, radio profiles, activation count, FT8 where it fits)
+- [ ] Load macros into the FT-710's keyer memories (`KM`) and play them (`KY`). Yaesu's `KY`
+      only plays memories; it can't key typed text, so live CW stays on DTR/RTS
 - [ ] Signed Windows and notarized Mac releases
 
 ## Build
@@ -67,12 +71,27 @@ Windows for each pull request and builds the zips; pushing a `v*` tag publishes 
 | `cw/` | Classic decoder, Morse tables, keyer, macros, WAV reading |
 | `deepcw/` | ONNX interpreter for the DeepCW model, with SIMD kernels |
 | `ops/` | Operating aids: callsign capture, Auto-CQ, ADIF log, POTA activation |
+| `rig/ft710/` | FT-710 CAT: commands, answers, meter calibration, SWR sweep (no I/O, fully tested) |
 | `cmd/cw-decoder/` | Windows app (Win32 window, waveIn audio, serial keying) |
 | `cmd/cwmac/` | Mac app and the Pi box (web page in `web/`) |
 | `cmd/cwdecode-file/` | Decode a WAV file from the command line |
 | `internal/testgen/` | Makes test recordings |
 | `testdata/samples/` | Sample recordings with known text (decoder regression tests) |
 | `packaging/` | Mac app bundle files and the Windows readme |
+
+## The Rig sheet (FT-710)
+
+**Rig** in the top bar talks to the FT-710 over CAT on its *Enhanced* COM port (CAT-1, the
+first of its two USB serial ports; the key port is the second). Setup > Radio > **CAT port**
+is Auto by default: the app asks each USB serial port for the FT-710's ID. The radio's
+CAT-1 RATE must be 38400 (its factory setting; Setup menu > OPERATION SETTING > GENERAL).
+Quit WSJT-X or other CAT programs first: only one program can have the port open.
+
+The **SWR sweep** keys the radio the way CW does (DTR/RTS on the key port, break-in on), so
+turn on Transmit first. It sends a 250 ms carrier at 5 or 10 W per step, in CW (allowed
+everywhere in every US HF band), and reads the SWR meter. Esc or Stop ends it; the radio's
+frequency, mode, power, split, clarifier and break-in are always put back. Only sweep where
+your license lets you transmit, and listen first.
 
 ## Installing a build
 
