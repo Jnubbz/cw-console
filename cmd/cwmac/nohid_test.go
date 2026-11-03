@@ -19,6 +19,7 @@ func TestReleaseRigHID(t *testing.T) {
 		os.WriteFile(filepath.Join(d, "devices", dev, "idProduct"), []byte(id[1]+"\n"), 0o644)
 	}
 	releaseRigHID(d)
+	os.Chmod(filepath.Join(drv, "unbind"), 0o600) // written write-only, like sysfs's; readable for the check (non-root)
 	b, _ := os.ReadFile(filepath.Join(drv, "unbind"))
 	if string(b) != "3-2.2:1.3" {
 		t.Fatalf("unbind got %q", b)
