@@ -74,6 +74,11 @@ func marksAndGaps(evs []keyEv) (marks, gaps []time.Duration) {
 }
 
 func TestKeyerTimingAt20And30WPM(t *testing.T) {
+	// On CI this runs in its own step (CW_TIMING=1): next to the AI tests, which use every
+	// core, a shared VM can't time anything.
+	if os.Getenv("CI") != "" && os.Getenv("CW_TIMING") == "" {
+		t.Skip("timed alone in CI (CW_TIMING=1)")
+	}
 	for _, wpm := range []int{20, 30} {
 		line := &fakeLine{}
 		k := NewKeyer(line, wpm, nil)
