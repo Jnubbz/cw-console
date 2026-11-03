@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"github.com/Jnubbz/cw-console/ops"
+	"github.com/Jnubbz/cw-console/rig/ft710"
 )
 
 var catBaud = 38400 // Yaesu
@@ -230,7 +231,7 @@ func isCATQuery(cmd string) bool {
 	case "FA;", "MD0;", "MD;", "DA;":
 		return true
 	}
-	return false
+	return ft710.IsQuery(cmd)
 }
 
 // state asks the rig for its mode code and VFO-A frequency (Hz).

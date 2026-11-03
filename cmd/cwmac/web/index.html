@@ -201,6 +201,16 @@
     .card { width: 100vw; max-height: 100vh; height: 100%; border-radius: 0; border: 0; }
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* FT-710 rig sheet */
+  #rigModal .vfo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #rigModal .vfo .tag { min-width: 26px; color: var(--dim); font-weight: 600; }
+  #rigModal .vfo .tx { color: var(--red); font-size: 12px; font-weight: 600; min-width: 22px; }
+  #rigModal .mhz { font: 600 24px var(--mono); font-variant-numeric: tabular-nums; min-width: 9.5ch; }
+  #rigModal input.mhzin { width: 118px; font-family: var(--mono); }
+  #rigModal button[aria-pressed="true"] { background: #4a3a17; border-color: var(--brass); color: var(--brass); font-weight: 600; }
+  #rigStat { font-size: 13px; }
+  #rigStat.err { color: #ff8a80; }
+  #swrPlot { width: 100%; height: 170px; background: var(--well); border: 1px solid var(--edge); border-radius: 8px; }
 </style>
 </head>
 <body>
@@ -214,6 +224,7 @@
   <span id="boxinfo" class="dim"></span>
   <span id="radioname" class="dim" title="The radio profile in use (Setup to change)"></span>
   <button id="start" class="primary" title="Start or stop listening to the input">Start</button>
+  <button id="rigbtn" title="FT-710: VFO A/B, split, clarifier, power, tuner and SWR sweep (over CAT)">Rig</button>
   <button id="setupbtn" title="Radio, audio and decoder settings">Setup</button>
   <button id="boxbtn" title="Box settings: Wi-Fi, passwords, update, power" style="display:none">&#9881; Box</button>
   <button id="quit" title="Stop the CW Decoder app">Quit</button>
@@ -320,6 +331,7 @@
     <div class="row"><label for="dev" title="The radio's USB sound card. Auto: the one on the same USB cable as the key port (so each radio hears its own, even with two plugged in)">Audio input</label><select id="dev" style="flex:1;min-width:0;max-width:100%"><option value="">(press Start to list inputs)</option></select>
       <button id="capbtn" title="Start or stop listening to the input">Stop listening</button></div>
     <div class="row"><label for="port" title="The radio's USB serial port: CW keying lines, PTT lines and CAT (on the FT-710, its second port; CAT is on the first)">Key port</label><select id="port" style="flex:1;min-width:0;max-width:100%"></select><button id="rescan" title="Look for ports again">&#8635;</button></div>
+    <div class="row"><label for="catport" title="The FT-710's CAT port (its Enhanced COM port, CAT-1, the first of its two), used by the Rig sheet. Auto finds it by asking each USB serial port for the FT-710's ID">CAT port</label><select id="catport" style="flex:1;min-width:0;max-width:100%"><option value="">Auto (find the FT-710)</option></select></div>
     <div class="row"><label for="line" title="How CW keys the rig. DTR/RTS: a line of the key port, rig in CW (FT-710: PC KEYING to match). CAT keyer: the text goes to the radio's own keyer (Kenwood KY). Audio tone: for radios with no key line over USB (FX-4CR): a clean keyed tone into the rig's USB audio, rig in USB">CW keying</label><select id="line"><option value="dtr">DTR</option><option value="rts">RTS</option><option value="cat">CAT keyer</option><option value="audio">Audio tone</option></select></div>
     <div class="note" id="audionote" hidden>Audio tone: CW goes out as a clean keyed tone at the decoder's pitch, through the rig's USB audio, keyed by the PTT below (the FX-4CR needs CAT) at the TX level. The rig must be in USB; Rig control puts it there.</div>
     <div class="row boxonly"><label for="f8ptt" title="How the box keys the rig to send audio: FT8, and CW as an audio tone. RTS/DTR: a line of the key port (FT-710: RPTT SELECT to match). CAT: a TX1; command (the FX-4CR needs this: its RTS PTT sends the mic)">PTT</label><select id="f8ptt"><option value="rts">RTS</option><option value="dtr">DTR</option><option value="cat">CAT (TX1;)</option></select></div>
@@ -359,6 +371,59 @@
     <div class="row"><label title="Send at the other station's speed, within these limits"><input id="match" type="checkbox"> Match their speed</label>
       <input id="mmin" type="number" min="5" max="50" step="1" title="slowest"><span class="dim">to</span><input id="mmax" type="number" min="5" max="50" step="1" title="fastest"><span class="dim">WPM</span></div>
     <div class="row"><label><input id="showsender" type="checkbox" checked> Show the sender</label></div>
+  </section>
+</div></div>
+
+<div class="modal" id="rigModal"><div class="card" style="max-width:640px">
+  <div class="row"><h2>Rig</h2><span id="rigStat" class="dim"></span><span class="spacer"></span><button id="rigClose" class="primary">Done</button></div>
+  <section>
+    <div class="vfo"><span class="tag">A</span><span class="tx" id="rigTxA"></span><span class="mhz" id="rigA">-</span>
+      <input id="rigAin" class="mhzin" type="text" placeholder="14.058" autocomplete="off" spellcheck="false" title="MHz (14.058) or kHz (14058); Enter to set">
+      <span class="spacer"></span><select id="rigMode" title="Mode (VFO-A)">
+        <option value="3">CW-U</option><option value="7">CW-L</option><option value="2">USB</option><option value="1">LSB</option>
+        <option value="C">DATA-U</option><option value="8">DATA-L</option><option value="5">AM</option><option value="4">FM</option></select></div>
+    <div class="vfo"><span class="tag">B</span><span class="tx" id="rigTxB"></span><span class="mhz" id="rigB">-</span>
+      <input id="rigBin" class="mhzin" type="text" placeholder="14.060" autocomplete="off" spellcheck="false" title="MHz or kHz; Enter to set"></div>
+    <div class="row">
+      <button id="rigSwap" title="Exchange VFO-A and VFO-B">A &#8644; B</button>
+      <button id="rigAtoB" title="Copy VFO-A to VFO-B">A &#8594; B</button>
+      <button id="rigBtoA" title="Copy VFO-B to VFO-A">B &#8594; A</button>
+      <button id="rigSplit" aria-pressed="false" title="Split: listen on A, transmit on B (DX pileups)">Split</button>
+      <button id="rigUp1" title="Split up 1 kHz: B = A + 1 kHz, split on">Up 1</button>
+      <button id="rigUp2" title="Split up 2 kHz: B = A + 2 kHz, split on">Up 2</button>
+    </div>
+  </section>
+  <section>
+    <h3>Clarifier</h3>
+    <div class="row">
+      <button id="rigClarRx" aria-pressed="false" title="Clarifier on receive (RIT)">RX</button>
+      <button id="rigClarTx" aria-pressed="false" title="Clarifier on transmit (XIT)">TX</button>
+      <button data-clar="-100">-100</button><button data-clar="-10">-10</button>
+      <span class="val mhz" id="rigClar" style="font-size:17px;min-width:7ch;text-align:center">+0 Hz</span>
+      <button data-clar="10">+10</button><button data-clar="100">+100</button>
+      <button id="rigClarClr" title="Offset back to zero">Clear</button>
+    </div>
+  </section>
+  <section>
+    <h3>Power and tuner</h3>
+    <div class="row"><span class="grp" style="flex:1;min-width:220px"><label for="rigPwr">Power</label>
+      <input id="rigPwr" type="range" min="5" max="100" step="1" style="flex:1"><span class="val" id="rigPwrv"></span></span>
+      <button id="rigTune" title="Built-in tuner: tune now (the radio transmits a carrier at low power briefly)">Tune</button>
+      <button id="rigTunerOff" title="Tuner bypass">Tuner off</button></div>
+  </section>
+  <section>
+    <h3>SWR sweep</h3>
+    <div class="note">Short low-power CW carriers across the band, reading the radio's SWR meter at each step. It uses the CW key line, so Transmit must be on (DTR or RTS). The radio goes back exactly as it was. Esc stops it. Only sweep where your license lets you transmit, and listen first.</div>
+    <div class="row">
+      <label for="swBand">Band</label><select id="swBand"></select>
+      <span class="grp"><label for="swFrom">from</label><input id="swFrom" type="text" style="width:88px" title="MHz"></span>
+      <span class="grp"><label for="swTo">to</label><input id="swTo" type="text" style="width:88px" title="MHz"></span>
+      <span class="grp"><label for="swStep">step</label><input id="swStep" type="number" min="1" max="500" step="1" style="width:72px"><span class="dim">kHz</span></span>
+      <span class="grp"><label for="swPwr">power</label><select id="swPwr"><option>5</option><option>10</option></select><span class="dim">W</span></span>
+    </div>
+    <div class="row"><button id="swGo" class="primary">Sweep</button><button id="swStop" class="danger" disabled>Stop</button>
+      <span id="swInfo" class="dim"></span></div>
+    <canvas id="swrPlot"></canvas>
   </section>
 </div></div>
 
@@ -811,6 +876,18 @@ async function loadPorts() {
   for (const p of ports) { const o = document.createElement("option"); o.value = p.path; o.textContent = p.label; sel.appendChild(o); }
   portsLoaded = true;
   syncPortSel();
+  const cs = $("catport"), keep = cs.value || wantCatPort;
+  cs.innerHTML = '<option value="">Auto (find the FT-710)</option>';
+  for (const p of ports) { if (p.path.startsWith("gpio")) continue; const o = document.createElement("option"); o.value = p.path; o.textContent = p.label; cs.appendChild(o); }
+  syncCatSel(keep);
+}
+let wantCatPort = "";
+function syncCatSel(want) {
+  const cs = $("catport");
+  if (want && ![...cs.options].some((o) => o.value === want)) {
+    const o = document.createElement("option"); o.value = want; o.textContent = want.split("/").pop() + " (not plugged in)"; cs.appendChild(o);
+  }
+  cs.value = want || "";
 }
 // show the saved port; one that isn't plugged in stays listed so it isn't lost
 function syncPortSel() {
@@ -1207,11 +1284,14 @@ $("catsend").onclick = async () => {
   $("catout").textContent = r.error ? r.error : r.answer;
 };
 $("catcmd").onkeydown = (ev) => { if (ev.key === "Enter") $("catsend").onclick(); };
+$("catport").onchange = () => { touched.catport = Date.now(); setting({ catPort: $("catport").value }); };
 $("cattype").onchange = () => { touched.cattype = Date.now(); setting({ catType: $("cattype").value }); };
 // the Setup sheet's FT8 and rig fields: kept current in either mode
 function applySetup(st) {
   const s = st.settings;
   if (!recent("cattype")) $("cattype").value = s.catType || "";
+  wantCatPort = s.catPort || "";
+  if (!recent("catport") && $("catport").value !== wantCatPort) syncCatSel(wantCatPort);
   if (!recent("ft8depth")) $("ft8depth").value = String(s.ft8Depth || 3);
   if (!recent("f8alog")) $("f8alog").checked = !s.ft8NoAutoLog;
   if (!recent("f8ptt")) $("f8ptt").value = s.ft8PttLine || "cat";
@@ -1391,6 +1471,167 @@ api("/api/clock", { now: Date.now() }).catch(() => {}); // the Pi box sets its c
 connect();
 loadPorts();
 setInterval(renderStatus, 1000);
+
+// ---- FT-710 rig sheet (VFOs, split, clarifier, power, tuner, SWR sweep), over CAT ----
+const RIG = { st: null, busy: 0, q: Promise.resolve(), poll: null, swPoll: null, sweep: null };
+// US amateur bands the sweep may cover (the app checks the same edges: rig/ft710/sweep.go)
+const SWEEP_BANDS = [["160m", 1.8, 2.0, 5], ["80m", 3.5, 4.0, 10], ["40m", 7.0, 7.3, 10], ["30m", 10.1, 10.15, 2],
+  ["20m", 14.0, 14.35, 10], ["17m", 18.068, 18.168, 5], ["15m", 21.0, 21.45, 15], ["12m", 24.89, 24.99, 5],
+  ["10m", 28.0, 29.7, 50], ["6m", 50.0, 54.0, 100]];
+const pad3 = (n) => String(n).padStart(3, "0");
+const fmtVFO = (hz) => hz ? `${Math.floor(hz / 1e6)}.${pad3(Math.floor(hz / 1e3) % 1000)}.${pad3(hz % 1000)}` : "-";
+// "14.058" (MHz), "14058" (kHz), "14.058.500" (as the radio shows it) -> Hz
+function parseHz(t) {
+  t = String(t).trim().replace(/,/g, ".");
+  if (!t) return 0;
+  const parts = t.split(".");
+  if (parts.length === 3) t = parts[0] + "." + parts[1] + parts[2];
+  const n = Number(t);
+  if (!isFinite(n) || n <= 0) return 0;
+  return Math.round(n < 100 ? n * 1e6 : n < 100000 ? n * 1e3 : n);
+}
+function rigRender(r) {
+  const stat = $("rigStat");
+  if (!r || r.error) {
+    stat.className = "err"; stat.textContent = r ? r.error : "";
+    if (r && r.error && r.error.length > 90) { stat.textContent = "Can't reach the radio (details)"; stat.title = r.error; }
+    return;
+  }
+  stat.className = "dim"; stat.title = r.port || "";
+  stat.textContent = "FT-710 on " + (r.port || "").split("/").pop();
+  const st = r.state; RIG.st = st;
+  $("rigA").textContent = fmtVFO(st.freqA); $("rigB").textContent = fmtVFO(st.freqB);
+  $("rigTxA").textContent = st.split ? "" : "TX"; $("rigTxB").textContent = st.split ? "TX" : "";
+  $("rigSplit").setAttribute("aria-pressed", String(st.split));
+  $("rigClarRx").setAttribute("aria-pressed", String(st.clarRx));
+  $("rigClarTx").setAttribute("aria-pressed", String(st.clarTx));
+  $("rigClar").textContent = (st.clarHz >= 0 ? "+" : "") + st.clarHz + " Hz";
+  if (!recent("rigMode") && [...$("rigMode").options].some((o) => o.value === st.mode)) $("rigMode").value = st.mode;
+  if (!recent("rigPwr")) $("rigPwr").value = st.powerW;
+  $("rigPwrv").textContent = (recent("rigPwr") ? $("rigPwr").value : st.powerW) + " W";
+}
+async function rigRefresh() {
+  if (RIG.busy || (RIG.sweep && RIG.sweep.running)) return;
+  rigQueue(async () => rigRender(await api("/api/rig")));
+}
+// Rig actions run one at a time, in the order pressed (quick clicks queue up, none are lost).
+function rigQueue(fn) {
+  RIG.busy++;
+  const run = RIG.q.then(fn).finally(() => { RIG.busy--; });
+  RIG.q = run.catch(() => {});
+  return run;
+}
+async function rigCall(action, value = "") {
+  const r = await api("/api/rig/do", { action, value: String(value) }); rigRender(r); return r;
+}
+const rigDo = (action, value = "") => rigQueue(() => rigCall(action, value));
+function rigOpen() {
+  $("rigModal").classList.add("open");
+  rigRefresh(); sweepFetch();
+  clearInterval(RIG.poll); RIG.poll = setInterval(() => { if ($("rigModal").classList.contains("open")) rigRefresh(); else clearInterval(RIG.poll); }, 2000);
+}
+function rigClose() { $("rigModal").classList.remove("open"); clearInterval(RIG.poll); }
+$("rigbtn").onclick = rigOpen;
+$("rigClose").onclick = rigClose;
+$("rigModal").onclick = (ev) => { if (ev.target === $("rigModal")) rigClose(); };
+for (const [id, act] of [["rigAin", "freqA"], ["rigBin", "freqB"]]) {
+  $(id).onkeydown = async (ev) => {
+    if (ev.key !== "Enter") return;
+    const hz = parseHz($(id).value);
+    if (!hz) { $("rigStat").className = "err"; $("rigStat").textContent = "Type a frequency: 14.058 (MHz) or 14058 (kHz)"; return; }
+    const r = await rigDo(act, hz);
+    if (r && !r.error) $(id).value = "";
+  };
+}
+$("rigMode").onchange = () => { touched.rigMode = Date.now(); rigDo("mode", $("rigMode").value); };
+$("rigSwap").onclick = () => rigDo("swap");
+$("rigAtoB").onclick = () => rigDo("atob");
+$("rigBtoA").onclick = () => rigDo("btoa");
+// toggles read the state when their turn comes, so two quick presses flip twice
+$("rigSplit").onclick = () => rigQueue(() => RIG.st && rigCall("split", RIG.st.split ? 0 : 1));
+for (const [id, khz] of [["rigUp1", 1], ["rigUp2", 2]]) {
+  $(id).onclick = () => rigQueue(async () => {
+    if (!RIG.st) return;
+    const r = await rigCall("freqB", RIG.st.freqA + khz * 1000);
+    if (r && !r.error) await rigCall("split", 1);
+  });
+}
+$("rigClarRx").onclick = () => rigQueue(() => RIG.st && rigCall("clarRx", RIG.st.clarRx ? 0 : 1));
+$("rigClarTx").onclick = () => rigQueue(() => RIG.st && rigCall("clarTx", RIG.st.clarTx ? 0 : 1));
+$("rigClarClr").onclick = () => rigDo("clarClear");
+for (const b of $("rigModal").querySelectorAll("button[data-clar]")) b.onclick = () => rigQueue(async () => {
+  if (!RIG.st) return;
+  const hz = Math.max(-9999, Math.min(9999, RIG.st.clarHz + Number(b.dataset.clar)));
+  const r = await rigCall("clarOffset", hz);
+  if (r && !r.error && !r.state.clarRx && !r.state.clarTx) await rigCall("clarRx", 1); // an offset is meant to be heard
+});
+$("rigPwr").oninput = () => { touched.rigPwr = Date.now(); $("rigPwrv").textContent = $("rigPwr").value + " W"; };
+$("rigPwr").onchange = () => { touched.rigPwr = Date.now(); rigDo("power", $("rigPwr").value); };
+$("rigTune").onclick = async () => { const r = await rigDo("tune"); if (r && !r.error) note("Tuner: tuning (the radio transmits briefly)"); };
+$("rigTunerOff").onclick = () => rigDo("tuner", 0);
+
+// SWR sweep
+for (const [name] of SWEEP_BANDS) { const o = document.createElement("option"); o.value = o.textContent = name; $("swBand").appendChild(o); }
+function swBandFill() {
+  const b = SWEEP_BANDS.find((x) => x[0] === $("swBand").value); if (!b) return;
+  $("swFrom").value = b[1].toFixed(3); $("swTo").value = b[2].toFixed(3); $("swStep").value = b[3];
+}
+$("swBand").onchange = swBandFill;
+$("swBand").value = "20m"; swBandFill();
+$("swGo").onclick = async () => {
+  const fromHz = parseHz($("swFrom").value), toHz = parseHz($("swTo").value), stepHz = Math.round(Number($("swStep").value) * 1000);
+  const r = await api("/api/rig/sweep", { band: $("swBand").value, fromHz, toHz, stepHz, powerW: Number($("swPwr").value) });
+  if (r.error) { info("SWR sweep", r.error); return; }
+  sweepShow(r); sweepPoll();
+};
+$("swStop").onclick = () => api("/api/rig/sweep/stop", "");
+async function sweepFetch() { sweepShow(await api("/api/rig/sweep")); if (RIG.sweep && RIG.sweep.running) sweepPoll(); }
+function sweepPoll() {
+  clearInterval(RIG.swPoll);
+  RIG.swPoll = setInterval(async () => {
+    const s = await api("/api/rig/sweep"); sweepShow(s);
+    if (!s.running) { clearInterval(RIG.swPoll); rigRefresh(); }
+  }, 400);
+}
+function sweepShow(s) {
+  RIG.sweep = s;
+  $("swGo").disabled = !!s.running; $("swStop").disabled = !s.running;
+  const n = (s.points || []).length;
+  let t = "";
+  if (s.running) t = `Sweeping... ${n} points`;
+  else if (s.error) t = "Stopped: " + s.error;
+  else if (s.best) t = `Lowest SWR ${s.best.swr.toFixed(1)} at ${(s.best.hz / 1e6).toFixed(3)} MHz (${n} points, ${s.powerW} W)`;
+  $("swInfo").textContent = t;
+  sweepDraw(s);
+}
+function sweepDraw(s) {
+  const c = $("swrPlot"), dpr = window.devicePixelRatio || 1;
+  const w = c.clientWidth, h = c.clientHeight; if (!w) return;
+  c.width = w * dpr; c.height = h * dpr;
+  const g = c.getContext("2d"); g.scale(dpr, dpr); g.clearRect(0, 0, w, h);
+  const css = getComputedStyle(document.documentElement), col = (v) => css.getPropertyValue(v).trim();
+  const pts = s.points || [];
+  if (!s.fromHz) { g.fillStyle = col("--faint"); g.font = "13px " + col("--ui"); g.fillText("SWR across the band appears here.", 12, 24); return; }
+  const L = 34, R = 10, T = 10, B = 22, maxY = Math.max(3, Math.min(5, Math.ceil(Math.max(1, ...pts.map((p) => p.swr)))));
+  const x = (hz) => L + (w - L - R) * (hz - s.fromHz) / Math.max(1, s.toHz - s.fromHz);
+  const y = (v) => T + (h - T - B) * (1 - (Math.min(v, maxY) - 1) / (maxY - 1));
+  g.font = "11px " + col("--mono"); g.lineWidth = 1;
+  for (const v of [1, 1.5, 2, 3, 4, 5].filter((v) => v <= maxY)) {
+    g.strokeStyle = v === 2 ? "#5b4a24" : col("--edge"); g.beginPath(); g.moveTo(L, y(v)); g.lineTo(w - R, y(v)); g.stroke();
+    g.fillStyle = col("--dim"); g.fillText(v.toFixed(1), 4, y(v) + 4);
+  }
+  g.fillStyle = col("--dim");
+  g.fillText((s.fromHz / 1e6).toFixed(3), L, h - 6);
+  const end = (s.toHz / 1e6).toFixed(3); g.fillText(end, w - R - g.measureText(end).width, h - 6);
+  if (!pts.length) return;
+  g.strokeStyle = col("--brass"); g.lineWidth = 2; g.beginPath();
+  pts.forEach((p, i) => (i ? g.lineTo(x(p.hz), y(p.swr)) : g.moveTo(x(p.hz), y(p.swr)))); g.stroke();
+  if (s.best) {
+    g.fillStyle = col("--green"); g.beginPath(); g.arc(x(s.best.hz), y(s.best.swr), 4, 0, 7); g.fill();
+    const lbl = `${s.best.swr.toFixed(1)} @ ${(s.best.hz / 1e6).toFixed(3)}`, lx = Math.min(x(s.best.hz) + 6, w - R - g.measureText(lbl).width);
+    g.fillText(lbl, lx, Math.max(T + 10, y(s.best.swr) - 8));
+  }
+}
 </script>
 </body>
 </html>

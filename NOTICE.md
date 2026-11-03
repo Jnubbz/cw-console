@@ -13,6 +13,10 @@ CW Console is licensed under the **GNU Affero General Public License v3.0** (see
   transmit on the Raspberry Pi box use WSJT-X 3.0.1's `jt9` and its FT8 encoder, built
   from WSJT-X source (not included in this repository).
   <https://wsjt.sourceforge.io/> — GPL-3.0.
+- **Hamlib** — the FT-710's CAT command details and its meter calibration tables
+  (`rig/ft710/`) were checked against Hamlib's FT-710 driver (`rigs/yaesu/newcat.c`,
+  `ft710.h`; SWR calibration by G3VPX, power calibration from FLRig by W1HKJ). No Hamlib
+  code is included. <https://github.com/Hamlib/Hamlib> — LGPL-2.1.
 - **IBM Plex** fonts (`cmd/cwmac/web/fonts/`) — SIL Open Font License 1.1
   (`OFL-IBM-Plex.txt` in that folder).
 - "Parks on the Air" and POTA are trademarks of Parks on the Air, Inc. This project is

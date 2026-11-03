@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux || darwin
 
 package main
 
@@ -7,18 +7,13 @@ import (
 	"fmt"
 	"syscall"
 	"time"
-	"unsafe"
 )
 
 type catConn struct{ fd int }
 
-var catSpeeds = map[int]uint32{4800: syscall.B4800, 9600: syscall.B9600, 19200: syscall.B19200,
-	38400: syscall.B38400, 115200: syscall.B115200}
-
 // openCAT opens a serial port raw at baud, 8N1, with DTR and RTS low (so it can't key).
 func openCAT(port string, baud int) (*catConn, error) {
-	sp, ok := catSpeeds[baud]
-	if !ok {
+	if !catBaudOK(baud) {
 		return nil, fmt.Errorf("unsupported baud %d", baud)
 	}
 	fd, err := syscall.Open(port, syscall.O_RDWR|syscall.O_NOCTTY|syscall.O_NONBLOCK, 0)
@@ -26,16 +21,12 @@ func openCAT(port string, baud int) (*catConn, error) {
 		return nil, fmt.Errorf("can't open the CAT port %s: %v", port, err)
 	}
 	ioctlInt(fd, tiocmBIC, tiocmDTR|tiocmRTS)
-	var t syscall.Termios
-	t.Cflag = syscall.CS8 | syscall.CREAD | syscall.CLOCAL | sp
-	t.Ispeed, t.Ospeed = sp, sp
-	t.Cc[syscall.VMIN], t.Cc[syscall.VTIME] = 0, 1 // reads return after 0.1 s without data
-	if _, _, e := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), syscall.TCSETS, uintptr(unsafe.Pointer(&t))); e != 0 {
+	if err := catRaw(fd, baud); err != nil { // termios: per OS (cat_termios_*.go)
 		syscall.Close(fd)
-		return nil, fmt.Errorf("CAT port settings: %v", e)
+		return nil, fmt.Errorf("CAT port settings: %v", err)
 	}
 	syscall.SetNonblock(fd, false)
-	syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), 0x540B /* TCFLSH */, 2) // drop anything pending
+	catFlush(fd) // drop anything pending
 	return &catConn{fd: fd}, nil
 }
 

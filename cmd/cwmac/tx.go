@@ -26,6 +26,7 @@ type txEngine struct {
 	queueSeq int64 // bumps on every queue change (lets the page reconcile its echo)
 	sentTail []rune
 	inLine   bool
+	sweeping bool // an SWR sweep is using the key line: hold the queue
 
 	macros    [8]cw.Macro
 	ctx       cw.MacroContext
@@ -128,6 +129,7 @@ func (t *txEngine) newAudioKeyerLocked(port string) (*audioKeyer, error) {
 }
 
 func (t *txEngine) closeLocked() {
+	t.e.stopSweep() // its key line is about to close
 	if t.keyer != nil {
 		t.keyer.Abort()
 		t.keyer.Close()
@@ -214,6 +216,7 @@ func (t *txEngine) sendMacroLocked(i int, call string, manual bool) error {
 
 func (t *txEngine) stopLocked() {
 	t.e.assist.Stop()
+	t.e.stopSweep()
 	if t.keyer != nil {
 		t.keyer.Abort()
 	}
@@ -268,7 +271,7 @@ func (t *txEngine) tickLocked() {
 	if a, ok := k.(*audioKeyer); ok { // the tone follows the decoder's pitch and the Level
 		a.configure(t.e.st.Pitch, ft8LevelGain(t.e.st.FT8Level), t.e.st.FT8Out, t.e.cap.device())
 	}
-	if k.Wants() && len(t.queue) > 0 {
+	if k.Wants() && len(t.queue) > 0 && !t.sweeping {
 		k.SetWPM(t.e.assist.SendWPM(t.e.st.WPM, time.Now())) // Match speed (or the slider)
 		if k.Feed(t.queue[0]) {
 			t.queue = t.queue[1:]
@@ -295,5 +298,5 @@ func (t *txEngine) fillStateLocked(s *stateMsg) {
 // busyLocked: keying, about to key, or text waiting (Auto-CQ listens only when idle).
 func (t *txEngine) busyLocked() bool {
 	k := t.keyer
-	return k != nil && (len(t.queue) > 0 || k.Busy() || k.Active(txMuteHang))
+	return k != nil && (len(t.queue) > 0 || k.Busy() || k.Active(txMuteHang) || t.sweeping)
 }
