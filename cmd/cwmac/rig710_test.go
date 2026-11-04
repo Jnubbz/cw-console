@@ -110,6 +110,7 @@ func (f *fake710) handle(cmd string) string {
 		return ""
 	}
 	if strings.HasPrefix(body, "BS") && len(body) == 4 {
+		f.v["FA"] = map[string]string{"03": "007030000", "05": "014250000"}[body[2:]]
 		return ""
 	}
 	return "?;"
@@ -187,8 +188,14 @@ func TestCATNeverUsesTheKeyPort(t *testing.T) {
 
 func TestBandKeys(t *testing.T) {
 	e, f := testEngine710(t)
-	if r := e.doRig(rigAction{"band", "40m"}); r.Error != "" {
-		t.Fatal(r.Error)
+	f.mu.Lock()
+	f.v["MD0"] = "2" // the band stack had USB
+	f.mu.Unlock()
+	if r := e.doRig(rigAction{"band", "20m"}); r.Error != "" || f.get("MD0") != "3" {
+		t.Fatalf("20 m should land in CW-U: %+v, mode %s", r, f.get("MD0"))
+	}
+	if r := e.doRig(rigAction{"band", "40m"}); r.Error != "" || f.get("MD0") != "7" {
+		t.Fatalf("40 m should land in CW-L: %+v, mode %s", r, f.get("MD0"))
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
