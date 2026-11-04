@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest # the Mac app's window is Swift
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -40,11 +40,11 @@ jobs:
           go run ./internal/signmanifest -version "$VERSION" \
             -base "https://github.com/${{ github.repository }}/releases/download/v$VERSION" \
             -notes "$NOTES" -out dist \
-            darwin-arm64=dist/CW-Decoder-Mac.zip windows-amd64=dist/CW-Decoder-Windows.zip
+            darwin-arm64=dist/CW-Console-Mac.zip windows-amd64=dist/CW-Console-Windows.zip
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v$VERSION" dist/CW-Decoder-Mac.zip dist/CW-Decoder-Windows.zip \
+          gh release create "v$VERSION" dist/CW-Console-Mac.zip dist/CW-Console-Windows.zip \
             dist/latest.json dist/latest.json.sig \
             --title "CW Console $VERSION" --generate-notes --latest

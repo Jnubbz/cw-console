@@ -165,7 +165,7 @@ func (s *server) routes() *http.ServeMux {
 		w.Header().Set("Cache-Control", "no-store")
 		io.WriteString(w, page)
 	})
-	m.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, "cwdecoder") })
+	m.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, pingName()) })
 	m.HandleFunc("/api/hello", s.guard(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) }))
 	m.HandleFunc("/fonts/", func(w http.ResponseWriter, r *http.Request) { // IBM Plex (SIL OFL), built in: no internet in the field
 		name := strings.TrimPrefix(r.URL.Path, "/fonts/")
@@ -538,7 +538,7 @@ func (s *server) shutdown() {
 }
 
 func main() {
-	port := flag.Int("port", 7373, "local port (73!)")
+	port := flag.Int("port", 7374, "local port (CW Decoder has 7373)")
 	noBrowser := flag.Bool("nobrowser", false, "don't open the browser")
 	idleExit := flag.Duration("idle-exit", time.Minute, "quit after this long with no page open and transmit off")
 	flag.BoolVar(&appliance, "appliance", false, "run as the Raspberry Pi box (Wi-Fi page with login, local audio)")
@@ -556,9 +556,11 @@ func main() {
 		if resp, e := http.Get(fmt.Sprintf("http://127.0.0.1:%d/api/ping", *port)); e == nil {
 			b, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			if string(b) == "cwdecoder" {
+			if string(b) == pingName() { // CW Console is running already: show it
+				url := fmt.Sprintf("http://localhost:%d/", *port)
+				fmt.Println("CW Console running at", url) // the Mac app's window reads this
 				if !*noBrowser {
-					openBrowser(fmt.Sprintf("http://localhost:%d/", *port))
+					openBrowser(url)
 				}
 				return
 			}
@@ -592,7 +594,7 @@ func main() {
 	}()
 
 	url := fmt.Sprintf("http://localhost:%d/", s.port)
-	fmt.Println("CW Decoder running at", url)
+	fmt.Println("CW Console running at", url)
 	if !*noBrowser {
 		openBrowser(url)
 	}
@@ -603,3 +605,12 @@ func main() {
 func itoa(i int) string { return strconv.Itoa(i) }
 
 func ftoa(f float64, prec int) string { return strconv.FormatFloat(f, 'f', prec, 64) }
+
+// pingName: what /api/ping answers, so a second copy can tell it's already running. The box
+// keeps "cwdecoder" (its update page waits for that answer).
+func pingName() string {
+	if appliance {
+		return "cwdecoder"
+	}
+	return "cwconsole"
+}

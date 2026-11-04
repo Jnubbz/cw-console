@@ -1,4 +1,4 @@
-CW DECODER for Windows
+CW CONSOLE for Windows
 ======================
 
 A standalone Morse (CW) decoder and sender with two decoders:
@@ -9,13 +9,13 @@ A standalone Morse (CW) decoder and sender with two decoders:
     https://github.com/e04/deepcw-engine), the same model Nexus uses. Much better on
     weak, fading, fast or irregular signals, at the cost of more CPU.
 
-No install needed. Just run CW-Decoder.exe. Keep the "deepcw" folder next to it;
+No install needed. Just run CW-Console.exe. Keep the "deepcw" folder next to it;
 that's the AI model.
 
 
 FIRST RUN
 ---------
-1. Unzip the folder anywhere (Desktop is fine) and double-click CW-Decoder.exe.
+1. Unzip the folder anywhere (Desktop is fine) and double-click CW-Console.exe.
 
 2. Windows may show "Windows protected your PC" because the program isn't
    code-signed. Click "More info", then "Run anyway". (Some antivirus tools
@@ -177,7 +177,7 @@ Logging:  Type the frequency in Freq (14.058, 14058 or just 20m), and the band
         none was copied), your call, state and grid.
 
         For POTA, set PARK = US-1234 (your park) in the macros. "Log folder"
-        opens %AppData%\CW Decoder\Logs,
+        opens %AppData%\CW Console\Logs,
         which then also holds the file the POTA uploader wants, named like
         KN0BLE@US-1234-20261013.adi (one per park per UTC day), with your
         park as MY_SIG_INFO. Every contact also goes into
@@ -206,7 +206,7 @@ GOOD TO KNOW
 ------------
 - Each decoder copies one signal at a time (the one at the orange line).
 - Settings (pitch, decoder, AI speed, input, key port, WPM...) are remembered
-  in %AppData%\CW Decoder\settings.ini; macros are in macros.txt there too,
+  in %AppData%\CW Console\settings.ini; macros are in macros.txt there too,
   and the logs in the Logs folder.
 - Keying timing: in testing, 95% of elements were within about 1 ms of perfect
   at 20 and 30 WPM. A very busy PC can occasionally stretch a single element.
@@ -216,7 +216,7 @@ GOOD TO KNOW
 
 LICENSES
 --------
-CW Decoder: GPL-3.0 (LICENSE.txt). The classic decoder and the AI audio handling
+CW Console: GPL-3.0 (LICENSE.txt). The classic decoder and the AI audio handling
 are from Nexus by KD9TAW, GPL-3.0.
 The DeepCW model in the deepcw folder is by e04 and licensed AGPL-3.0
 (deepcw\LICENSE). Using it yourself is fine; if you ever redistribute the app or

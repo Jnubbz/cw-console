@@ -185,7 +185,7 @@ func aiTick(samples []float32, rate int) {
 		AI.loading = false
 		if r.err != nil {
 			messageBox(A.hwnd, "The AI decoder couldn't start:\n\n"+r.err.Error()+
-				"\n\nIt needs the 'deepcw' folder (model.onnx and model.onnx.json) next to CW-Decoder.exe. "+
+				"\n\nIt needs the 'deepcw' folder (model.onnx and model.onnx.json) next to CW-Console.exe. "+
 				"Switching back to the classic decoder.", appTitle, MB_ICONWARNING)
 			AI.mode = decClassic
 			send(AI.cmbDec, CB_SETCURSEL, decClassic, 0)

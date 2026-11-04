@@ -226,7 +226,7 @@ func (l *Logbook) rewrite(q QSO) error {
 	return writeAll(filepath.Join(l.Dir, name), same)
 }
 
-const adifHeader = "ADIF log written by CW Decoder\n<ADIF_VER:5>3.1.4 <PROGRAMID:10>CW Decoder <EOH>\n\n"
+const adifHeader = "ADIF log written by CW Console\n<ADIF_VER:5>3.1.4 <PROGRAMID:10>CW Console <EOH>\n\n"
 
 func appendRecord(path string, q QSO) error {
 	_, err := os.Stat(path)

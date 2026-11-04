@@ -1,4 +1,4 @@
-CW DECODER for Mac (Apple Silicon)
+CW CONSOLE for Mac (Apple Silicon)
 ==================================
 
 The same decoders (classic + DeepCW AI) and CW sender as the Windows version.
@@ -8,18 +8,18 @@ The app runs in the background; its window is a page in your web browser
 
 FIRST RUN
 ---------
-1. Unzip, and drag "CW Decoder.app" to your Applications folder.
+1. Unzip, and drag "CW Console.app" to your Applications folder.
 
 2. The app isn't signed by Apple, so macOS will refuse to open it the first
    time (it may even call it "damaged"; it isn't). Open Terminal and run:
 
-       xattr -dr com.apple.quarantine "/Applications/CW Decoder.app"
+       xattr -dr com.apple.quarantine "/Applications/CW Console.app"
 
    Then double-click it. (Alternatively, if macOS offers it: System Settings >
    Privacy & Security > "Open Anyway". If you have an Apple Developer ID,
    sign-and-notarize.sh does it properly - see the notes inside it.)
 
-3. Your browser opens at http://localhost:7373 with the CW Decoder page.
+3. Your browser opens at http://localhost:7374 with the CW Console page.
    Bookmark it if you like.
 
 4. Press Start and pick the radio's audio input. The FT-710's USB audio
@@ -27,7 +27,7 @@ FIRST RUN
    permission the first time; allow it. If it can't open the input, check
    System Settings > Privacy & Security > Microphone has your browser on.
 
-Keep the CW Decoder tab open while you use it (its own browser window is
+Keep the CW Console tab open while you use it (its own browser window is
 handy). Quit with the Quit button. If you just close the tab, the app
 quits by itself about a minute later.
 
@@ -60,7 +60,7 @@ fn+F1..F8, or Option+1..8. Esc stops sending instantly. If the page is
 closed while sending, sending stops within 5 seconds.
 
 Macros: "Edit macros..." opens them right in the page. They're stored in
-~/Library/Application Support/CW Decoder/macros.txt (settings live there too).
+~/Library/Application Support/CW Console/macros.txt (settings live there too).
 
 
 OPERATING AIDS (Auto-CQ, auto-reply, logging...)
@@ -109,7 +109,7 @@ Logging:  Type the frequency in Freq (14.058, 14058 or just 20m), and the band
         none was copied), your call, state and grid.
 
         For POTA, set PARK = US-1234 (your park) in the macros. "Log folder"
-        opens ~/Library/Application Support/CW Decoder/Logs,
+        opens ~/Library/Application Support/CW Console/Logs,
         which then also holds the file the POTA uploader wants, named like
         KN0BLE@US-1234-20261013.adi (one per park per UTC day), with your
         park as MY_SIG_INFO. Every contact also goes into

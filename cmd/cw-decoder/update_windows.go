@@ -3,7 +3,7 @@ package main
 // Updates on Windows: a few seconds after starting (and every 6 hours) look for a new
 // release; if there is one, ask. On Yes: download it (progress in the title bar), check it
 // against the signed manifest (internal/selfupdate), then replace the files next to
-// CW-Decoder.exe. Windows lets a running .exe be renamed but not overwritten, so each
+// CW-Console.exe. Windows lets a running .exe be renamed but not overwritten, so each
 // file is renamed to *.old first and the new one put in its place. The new app is started
 // with -after-update <pid>: it waits for this one to close before opening its window, and
 // clears the *.old files.
@@ -114,7 +114,7 @@ func updateTick() {
 		return
 	}
 	if TX.keyer != nil && (len(TX.queue) > 0 || TX.keyer.Busy()) {
-		messageBox(A.hwnd, "Wait until sending has finished, then restart CW Decoder to install the update.", appTitle+" update", MB_ICONINFO)
+		messageBox(A.hwnd, "Wait until sending has finished, then restart CW Console to install the update.", appTitle+" update", MB_ICONINFO)
 		upd.mu.Lock()
 		upd.asked = false
 		upd.mu.Unlock()
@@ -129,7 +129,7 @@ func updateTick() {
 func installUpdate(m *selfupdate.Manifest) {
 	fail := func(err error) {
 		upd.mu.Lock()
-		upd.busy, upd.fail = false, "The update didn't install: "+err.Error()+"\n\nCW Decoder keeps working as it was."
+		upd.busy, upd.fail = false, "The update didn't install: "+err.Error()+"\n\nCW Console keeps working as it was."
 		upd.mu.Unlock()
 	}
 	dir, err := exeDir()
@@ -166,7 +166,7 @@ func installUpdate(m *selfupdate.Manifest) {
 	upd.mu.Unlock()
 }
 
-// applyUpdate unpacks the zip and puts its files in dir (the folder with CW-Decoder.exe).
+// applyUpdate unpacks the zip and puts its files in dir (the folder with CW-Console.exe).
 // Existing files are renamed to *.old first; if anything fails, what was done is undone.
 func applyUpdate(zip, stage, dir string) error {
 	x := filepath.Join(stage, "x")
@@ -181,8 +181,8 @@ func applyUpdate(zip, stage, dir string) error {
 		return errors.New("the update has an unexpected layout")
 	}
 	root := roots[0]
-	if _, err := os.Stat(filepath.Join(root, "CW-Decoder.exe")); err != nil {
-		return errors.New("the update doesn't contain CW-Decoder.exe")
+	if _, err := os.Stat(filepath.Join(root, "CW-Console.exe")); err != nil {
+		return errors.New("the update doesn't contain CW-Console.exe")
 	}
 	var files []string
 	filepath.Walk(root, func(p string, info os.FileInfo, err error) error {
@@ -229,18 +229,23 @@ func applyUpdate(zip, stage, dir string) error {
 	return nil
 }
 
-// restartIntoUpdate starts the new CW-Decoder.exe (it waits for this one) and closes.
+// restartIntoUpdate starts the new CW-Console.exe (it waits for this one) and closes.
 func restartIntoUpdate() {
 	upd.mu.Lock()
 	upd.ready = false
 	upd.mu.Unlock()
 	exe, err := os.Executable()
+	if dir, derr := exeDir(); derr == nil { // the new program, even if this one had the old name
+		if _, serr := os.Stat(filepath.Join(dir, "CW-Console.exe")); serr == nil {
+			exe = filepath.Join(dir, "CW-Console.exe")
+		}
+	}
 	if err == nil {
 		cmd := exec.Command(exe, "-after-update", strconv.Itoa(os.Getpid()))
 		err = cmd.Start()
 	}
 	if err != nil {
-		messageBox(A.hwnd, "The update is installed. Start CW Decoder again to use it.", appTitle+" update", MB_ICONINFO)
+		messageBox(A.hwnd, "The update is installed. Start CW Console again to use it.", appTitle+" update", MB_ICONINFO)
 	}
 	pSendMessageW.Call(A.hwnd, WM_CLOSE, 0, 0)
 }
