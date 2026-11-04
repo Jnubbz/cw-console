@@ -81,6 +81,13 @@ Windows for each pull request and builds the zips; pushing a `v*` tag publishes 
 
 ## Home station first
 
+The main screen keeps what you use at hand: a waterfall (spectrum above, ~5 Hz history
+below, the decoder's passband shaded; click a signal to tune), the band strip, the decoded
+text and the sender; on a wide screen a side column has the **radio** (frequency, band keys,
+split, A/B, RIT, power: the Rig sheet's **More...** has the rest and the SWR sweep), the
+**decoder** (classic or AI, sensitivity) and **who's on the band**. Dark with blue accents;
+POTA mode switches to the green field look.
+
 CW Console is a full CW console for the home station. POTA activating is an option:
 **Setup > Operating > POTA activation mode** shows the park and activation-count bar
 (always on for the POTA Pi box).
