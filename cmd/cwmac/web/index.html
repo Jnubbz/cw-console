@@ -483,7 +483,7 @@
   </section>
   <section id="setupdate">
     <h3>Updates</h3>
-    <div class="row"><span id="updVer" class="dim">Version</span><span class="spacer"></span><button id="updCheck">Check for updates</button></div>
+    <div class="row"><span id="updVer" class="dim">Version</span><span class="spacer"></span><button id="updCheck">Check for updates</button><button id="updInstall" class="primary" hidden>Install and restart</button></div>
   </section>
 </div></div>
 
@@ -1859,14 +1859,18 @@ function updRender(u, manual) {
   if (u.error && manual) v += ` - ${u.error}`;
   else if (avail) v += ` - ${u.latest} is ready`;
   else if (manual) v += " - you're up to date";
-  $("updVer").textContent = v;
   const busy = u.state && u.state !== "checking";
+  $("updInstall").hidden = !(avail && u.canInstall); // right here in Setup, next to Check
+  $("updInstall").disabled = !!busy;
+  if (busy) v = $("updText").textContent || v;
+  $("updVer").textContent = v;
   if (busy) {
     $("update").hidden = false; $("updGo").disabled = $("updLater").disabled = true;
     const mb = (n) => (n / 1048576).toFixed(1);
     $("updText").textContent = u.state === "downloading"
       ? `Downloading the update... ${mb(u.done || 0)} MB` + (u.total ? ` of ${mb(u.total)} MB` : "")
       : u.state === "installing" ? "Checking and installing the update..." : `Restarting into ${u.latest}...`;
+    $("updVer").textContent = $("updText").textContent;
     return;
   }
   $("updGo").disabled = $("updLater").disabled = false;
@@ -1887,6 +1891,7 @@ async function checkForUpdate(manual) {
 }
 $("updCheck").onclick = () => { updLater = false; checkForUpdate(true); };
 $("updLater").onclick = () => { updLater = true; $("update").hidden = true; };
+$("updInstall").onclick = () => $("updGo").onclick();
 $("updGo").onclick = async () => {
   $("updGo").disabled = $("updLater").disabled = true;
   $("updText").textContent = "Starting the update...";
