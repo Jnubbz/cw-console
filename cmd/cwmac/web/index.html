@@ -211,6 +211,8 @@
   #rigModal input.mhzin { width: 118px; font-family: var(--mono); }
   #rigModal button[aria-pressed="true"] { background: #4a3a17; border-color: var(--brass); color: var(--brass); font-weight: 600; }
   #rigStat { font-size: 13px; }
+  #rigBands { gap: 4px; }
+  #rigBands button { min-width: 40px; padding: 6px 6px; font-variant-numeric: tabular-nums; }
   #rigStat.err { color: #ff8a80; }
   #swrPlot { width: 100%; height: 170px; background: var(--well); border: 1px solid var(--edge); border-radius: 8px; }
 </style>
@@ -385,6 +387,7 @@
 <div class="modal" id="rigModal"><div class="card" style="max-width:640px">
   <div class="row"><h2>Rig</h2><span id="rigStat" class="dim"></span><span class="spacer"></span><button id="rigClose" class="primary">Done</button></div>
   <section>
+    <div class="row" id="rigBands" title="Band keys: back to where you last were on that band (the radio's band stack)"></div>
     <div class="vfo"><span class="tag">A</span><span class="tx" id="rigTxA"></span><span class="mhz" id="rigA">-</span>
       <input id="rigAin" class="mhzin" type="text" placeholder="14.058" autocomplete="off" spellcheck="false" title="MHz (14.058) or kHz (14058); Enter to set">
       <span class="spacer"></span><select id="rigMode" title="Mode (VFO-A)">
@@ -887,12 +890,16 @@ async function loadPorts() {
   syncPortSel();
   const cs = $("catport"), keep = cs.value || wantCatPort;
   cs.innerHTML = '<option value="">Auto (find the FT-710)</option>';
-  for (const p of ports) { if (p.path.startsWith("gpio")) continue; const o = document.createElement("option"); o.value = p.path; o.textContent = p.label; cs.appendChild(o); }
-  syncCatSel(keep);
+  for (const p of ports) {
+    if (p.path.startsWith("gpio") || p.path === $("port").value) continue; // never CAT on the key port: it would key the radio
+    const o = document.createElement("option"); o.value = p.path; o.textContent = p.label; cs.appendChild(o);
+  }
+  syncCatSel(keep === $("port").value ? "" : keep);
 }
 let wantCatPort = "";
 function syncCatSel(want) {
   const cs = $("catport");
+  if (want && want === $("port").value) want = ""; // the app ignores it there anyway: show Auto
   if (want && ![...cs.options].some((o) => o.value === want)) {
     const o = document.createElement("option"); o.value = want; o.textContent = want.split("/").pop() + " (not plugged in)"; cs.appendChild(o);
   }
@@ -918,7 +925,7 @@ async function enableTX(on) {
 }
 $("txon").onchange = () => enableTX($("txon").checked);
 // saved straight away (FT8 keys on the saved port too), and CW transmit follows
-$("port").onchange = () => { touched.port = Date.now(); wantPort = lastPort = $("port").value; setting({ txPort: $("port").value }); if (S && S.txOn) enableTX(true); };
+$("port").onchange = () => { touched.port = Date.now(); wantPort = lastPort = $("port").value; setting({ txPort: $("port").value }); if (S && S.txOn) enableTX(true); loadPorts(); };
 $("line").onchange = () => { touched.line = Date.now(); $("audionote").hidden = $("line").value !== "audio"; setting({ txLine: $("line").value }); if (S && S.txOn) enableTX(true); };
 
 // ---------- operating aids ----------
@@ -1510,6 +1517,8 @@ function rigRender(r) {
   stat.textContent = "FT-710 on " + (r.port || "").split("/").pop();
   const st = r.state; RIG.st = st;
   $("rigA").textContent = fmtVFO(st.freqA); $("rigB").textContent = fmtVFO(st.freqB);
+  const band = rigBandOf(st.freqA);
+  for (const b of $("rigBands").children) b.setAttribute("aria-pressed", String(b.dataset.band === band));
   $("rigTxA").textContent = st.split ? "" : "TX"; $("rigTxB").textContent = st.split ? "TX" : "";
   $("rigSplit").setAttribute("aria-pressed", String(st.split));
   $("rigClarRx").setAttribute("aria-pressed", String(st.clarRx));
@@ -1551,6 +1560,16 @@ for (const [id, act] of [["rigAin", "freqA"], ["rigBin", "freqB"]]) {
     const r = await rigDo(act, hz);
     if (r && !r.error) $(id).value = "";
   };
+}
+for (const b of ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m"]) {
+  const btn = document.createElement("button"); btn.textContent = b.replace("m", ""); btn.title = b; btn.dataset.band = b;
+  btn.onclick = () => rigDo("band", b);
+  $("rigBands").appendChild(btn);
+}
+function rigBandOf(hz) {
+  const edges = [["160m", 1.8e6, 2.0e6], ["80m", 3.5e6, 4.0e6], ["60m", 5.3e6, 5.41e6], ["40m", 7.0e6, 7.3e6], ["30m", 10.1e6, 10.15e6],
+    ["20m", 14.0e6, 14.35e6], ["17m", 18.068e6, 18.168e6], ["15m", 21.0e6, 21.45e6], ["12m", 24.89e6, 24.99e6], ["10m", 28.0e6, 29.7e6], ["6m", 50e6, 54e6]];
+  const e = edges.find(([, lo, hi]) => hz >= lo && hz <= hi); return e ? e[0] : "";
 }
 $("rigMode").onchange = () => { touched.rigMode = Date.now(); rigDo("mode", $("rigMode").value); };
 $("rigSwap").onclick = () => rigDo("swap");

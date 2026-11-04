@@ -13,6 +13,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -49,15 +50,21 @@ func (e *Engine) ft710Spec() (catSpec, error) {
 	if s := catSpecFor(keyPort, catType); s.Kenwood {
 		return catSpec{}, errNotYaesu
 	}
-	if catPort != "" {
+	// Never CAT on the key port: opening a serial port raises its DTR (and RTS) for a
+	// moment, and that's the CW key line, so the radio would key every time. (A CAT port
+	// set to the key port is ignored: Auto finds the right one.)
+	if catPort != "" && !samePort(catPort, keyPort) {
 		return catSpec{Port: catPort, Baud: catBaud}, nil
 	}
-	if p := catPortFor(keyPort); p != "" {
+	if p := catPortFor(keyPort); p != "" && !samePort(p, keyPort) {
 		return catSpec{Port: p, Baud: catBaud}, nil
 	}
 	e.rp.mu.Lock()
 	p := e.rp.autoPort
 	e.rp.mu.Unlock()
+	if samePort(p, keyPort) {
+		p = ""
+	}
 	if p == "" {
 		p = findFT710(keyPort)
 		if p == "" {
@@ -75,7 +82,7 @@ func (e *Engine) ft710Spec() (catSpec, error) {
 func findFT710(keyPort string) string {
 	for _, pi := range listPorts() {
 		p := pi.Path
-		if p == keyPort || !likelyRigPort(p) {
+		if samePort(p, keyPort) || !likelyRigPort(p) {
 			continue
 		}
 		c, err := openCAT(p, catBaud)
@@ -91,6 +98,19 @@ func findFT710(keyPort string) string {
 		c.Close()
 	}
 	return ""
+}
+
+// samePort: whether a and b are the same device (by-id links resolved).
+func samePort(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	if a == b {
+		return true
+	}
+	ra, err1 := filepath.EvalSymlinks(a)
+	rb, err2 := filepath.EvalSymlinks(b)
+	return err1 == nil && err2 == nil && ra == rb
 }
 
 // likelyRigPort: USB serial ports (not GPIO, Bluetooth, modems...).
@@ -201,6 +221,8 @@ func (a rigAction) cmds() ([]string, error) {
 			return nil, err
 		}
 		return one(ft710.SetPower(w))
+	case "band":
+		return one(ft710.SelectBand(a.Value))
 	case "tune":
 		return []string{ft710.TunerStart}, nil
 	case "tuner":
@@ -248,7 +270,10 @@ func (e *Engine) doRig(a rigAction) rigReply {
 	if _, err := cat(cmds...); err != nil {
 		return rigReply{Port: spec.Port, Error: err.Error()}
 	}
-	if a.Action == "freqA" || a.Action == "swap" || a.Action == "btoa" {
+	switch a.Action {
+	case "band":
+		time.Sleep(250 * time.Millisecond) // a band change takes the radio a moment
+	case "freqA", "swap", "btoa":
 		time.Sleep(50 * time.Millisecond) // the radio settles before the read-back
 	}
 	return e.rigState()

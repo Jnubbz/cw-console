@@ -124,6 +124,22 @@ func SetKeySpeed(wpm int) (string, error) {
 	return fmt.Sprintf("KS%03d;", wpm), nil
 }
 
+// BandCodes: BS<code>; picks a band the way the radio's band keys do (back to where you
+// last were on it: frequency and mode from the radio's band stack).
+var BandCodes = map[string]string{
+	"160m": "00", "80m": "01", "60m": "02", "40m": "03", "30m": "04", "20m": "05",
+	"17m": "06", "15m": "07", "12m": "08", "10m": "09", "6m": "10",
+}
+
+// SelectBand: "20m" -> "BS05;".
+func SelectBand(band string) (string, error) {
+	c, ok := BandCodes[band]
+	if !ok {
+		return "", fmt.Errorf("the FT-710 has no %q band key", band)
+	}
+	return "BS" + c + ";", nil
+}
+
 // SetBreakIn: CW break-in (BK-IN) on/off. Key-line CW only transmits with it on.
 func SetBreakIn(on bool) string { return "BI" + b01(on) + ";" }
 
