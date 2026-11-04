@@ -59,6 +59,7 @@ const (
 	MaxClar     = 9999       // clarifier offset, ± Hz
 	MinPower    = 5          // PC range, W
 	MaxPower    = 100        //
+	MaxGain     = 255        // RG / AG range 0-255
 	MinWPM      = 4          // KS range
 	MaxWPM      = 60         //
 	KeyerMemMax = 50         // characters in a keyer memory (KM)
@@ -114,6 +115,23 @@ func SetPower(w int) (string, error) {
 		return "", fmt.Errorf("power %d W is outside %d-%d W", w, MinPower, MaxPower)
 	}
 	return fmt.Sprintf("PC%03d;", w), nil
+}
+
+// SetRFGain: RF gain, 0-255 (RG0nnn; as Hamlib sends it). Turned well down, weak
+// signals never reach the audio, whatever the decoder does.
+func SetRFGain(n int) (string, error) {
+	if n < 0 || n > MaxGain {
+		return "", fmt.Errorf("RF gain %d is outside 0-%d", n, MaxGain)
+	}
+	return fmt.Sprintf("RG0%03d;", n), nil
+}
+
+// SetAFGain: AF gain (volume), 0-255 (AG0nnn;).
+func SetAFGain(n int) (string, error) {
+	if n < 0 || n > MaxGain {
+		return "", fmt.Errorf("AF gain %d is outside 0-%d", n, MaxGain)
+	}
+	return fmt.Sprintf("AG0%03d;", n), nil
 }
 
 // SetKeySpeed: the radio's own keyer speed (4-60 WPM).
@@ -186,12 +204,12 @@ const (
 )
 
 // StateQueries: what to send, in order, to fill a State with ParseState.
-var StateQueries = []string{"FA;", "FB;", "MD0;", "FT;", "CF000;", "CF001;", "PC;"}
+var StateQueries = []string{"FA;", "FB;", "MD0;", "FT;", "CF000;", "CF001;", "PC;", "RG0;", "AG0;"}
 
 // IsQuery: whether cmd asks for an answer (so the caller should read one).
 func IsQuery(cmd string) bool {
 	switch cmd {
-	case "FA;", "FB;", "MD0;", "FT;", "CF000;", "CF001;", "PC;", "BI;", "AC;", "KS;", "ID;",
+	case "FA;", "FB;", "MD0;", "FT;", "CF000;", "CF001;", "PC;", "RG0;", "AG0;", "BI;", "AC;", "KS;", "ID;",
 		MeterALC, MeterPO, MeterSWR:
 		return true
 	}
@@ -211,6 +229,8 @@ type State struct {
 	PowerW   int    `json:"powerW"`
 	RXFreq   int    `json:"rxFreq"` // where the rig listens, clarifier included
 	TXFreq   int    `json:"txFreq"` // where it transmits
+	RFGain   int    `json:"rfGain"` // RF gain, 0-255 (255 = full; the front-panel RF/SQL knob)
+	AFGain   int    `json:"afGain"` // AF gain (volume), 0-255
 }
 
 // ParseState reads the answers to StateQueries.
@@ -245,6 +265,12 @@ func ParseState(a []string) (State, error) {
 		return s, err
 	}
 	if s.PowerW, err = intAfter(a[6], "PC"); err != nil {
+		return s, err
+	}
+	if s.RFGain, err = gainAfter(a[7], "RG0"); err != nil {
+		return s, err
+	}
+	if s.AFGain, err = gainAfter(a[8], "AG0"); err != nil {
 		return s, err
 	}
 	s.RXFreq, s.TXFreq = s.FreqA, s.FreqA
@@ -320,6 +346,14 @@ func after(answer, prefix string) (string, error) {
 		return "", fmt.Errorf("expected %s...; got %q", prefix, answer)
 	}
 	return strings.TrimSuffix(strings.TrimPrefix(answer, prefix), ";"), nil
+}
+
+func gainAfter(answer, prefix string) (int, error) {
+	n, err := intAfter(answer, prefix)
+	if err == nil && (n < 0 || n > MaxGain) {
+		err = fmt.Errorf("unexpected gain answer %q", answer)
+	}
+	return n, err
 }
 
 func intAfter(answer, prefix string) (int, error) {

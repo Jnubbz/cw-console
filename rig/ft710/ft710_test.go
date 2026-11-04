@@ -76,17 +76,17 @@ func TestRejectsOutOfRange(t *testing.T) {
 }
 
 func TestParseState(t *testing.T) {
-	s, err := ParseState([]string{"FA014058000;", "FB014060000;", "MD03;", "FT1;", "CF00010000;", "CF001-0120;", "PC050;"})
+	s, err := ParseState([]string{"FA014058000;", "FB014060000;", "MD03;", "FT1;", "CF00010000;", "CF001-0120;", "PC050;", "RG0040;", "AG0128;"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := State{FreqA: 14_058_000, FreqB: 14_060_000, Mode: "3", ModeName: "CW-U", Split: true,
-		ClarRX: true, ClarHz: -120, PowerW: 50, RXFreq: 14_057_880, TXFreq: 14_060_000}
+		ClarRX: true, ClarHz: -120, PowerW: 50, RXFreq: 14_057_880, TXFreq: 14_060_000, RFGain: 40, AFGain: 128}
 	if s != want {
 		t.Fatalf("got  %+v\nwant %+v", s, want)
 	}
 	// Clarifier on TX only, no split: TX moves, RX doesn't.
-	s, err = ParseState([]string{"FA007030000;", "FB007030000;", "MD07;", "FT0;", "CF00001000;", "CF001+0200;", "PC100;"})
+	s, err = ParseState([]string{"FA007030000;", "FB007030000;", "MD07;", "FT0;", "CF00001000;", "CF001+0200;", "PC100;", "RG0255;", "AG0000;"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,12 +95,34 @@ func TestParseState(t *testing.T) {
 	}
 }
 
+func TestGainCommands(t *testing.T) {
+	for _, c := range []struct {
+		f    func(int) (string, error)
+		n    int
+		want string
+	}{{SetRFGain, 0, "RG0000;"}, {SetRFGain, 255, "RG0255;"}, {SetAFGain, 77, "AG0077;"}} {
+		if got, err := c.f(c.n); err != nil || got != c.want {
+			t.Errorf("%d: got %q %v, want %q", c.n, got, err, c.want)
+		}
+	}
+	for _, n := range []int{-1, 256} {
+		if _, err := SetRFGain(n); err == nil {
+			t.Errorf("RF gain %d accepted", n)
+		}
+		if _, err := SetAFGain(n); err == nil {
+			t.Errorf("AF gain %d accepted", n)
+		}
+	}
+}
+
 func TestParseStateRejectsGarbage(t *testing.T) {
 	for _, a := range [][]string{
 		{"FA014058000;"},
 		{"?;", "FB014060000;", "MD03;", "FT1;", "CF00010000;", "CF001-0120;", "PC050;"},
 		{"FA014058000;", "FB014060000;", "MD0;", "FT1;", "CF00010000;", "CF001-0120;", "PC050;"},
-		{"FA014058000;", "FB014060000;", "MD03;", "FT1;", "CF0;", "CF001-0120;", "PC050;"},
+		{"FA014058000;", "FB014060000;", "MD03;", "FT1;", "CF0;", "CF001-0120;", "PC050;", "RG0255;", "AG0128;"},
+		{"FA014058000;", "FB014060000;", "MD03;", "FT1;", "CF00010000;", "CF001-0120;", "PC050;", "RG0999;", "AG0128;"},
+		{"FA014058000;", "FB014060000;", "MD03;", "FT1;", "CF00010000;", "CF001-0120;", "PC050;", "RG0255;", "?;"},
 	} {
 		if _, err := ParseState(a); err == nil {
 			t.Errorf("%q: expected an error", a)

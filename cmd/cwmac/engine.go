@@ -134,6 +134,7 @@ type Engine struct {
 
 	wf     *cw.Waterfall // waterfall rows (one per state update)
 	wfRow  []byte
+	level  audioLevel // input meter
 	wfRate int
 }
 
@@ -325,6 +326,8 @@ func (e *Engine) pushAudio(samples []float32, rate int) {
 	dec := samples
 	if e.tx.keyer != nil && e.tx.keyer.Active(txMuteHang) {
 		dec = make([]float32, len(samples)) // silence for the decoders while we transmit
+	} else {
+		e.level.add(samples, e.lastAudio)
 	}
 	e.dec.Push(dec)
 	if t := e.dec.TakeText(); t != "" {
@@ -707,7 +710,7 @@ func (e *Engine) logFT8(l *ft8Log, manual bool) {
 }
 
 func (e *Engine) stateLocked() event {
-	s := &stateMsg{Settings: e.st, Spec: e.spec, WF: e.wfRow, Running: e.audioRunning(),
+	s := &stateMsg{Settings: e.st, Spec: e.spec, WF: e.wfRow, Running: e.audioRunning(), Level: e.level.read(time.Now()),
 		FocusWidth: deepcw.FocusWidth, SIMD: deepcw.SIMDName()}
 	if e.dec != nil {
 		s.Key = e.dec.KeyDown()
@@ -742,7 +745,8 @@ func (e *Engine) stateLocked() event {
 type stateMsg struct {
 	Settings   Settings  `json:"settings"`
 	Spec       []float32 `json:"spec"`
-	WF         []byte    `json:"wf,omitempty"` // newest waterfall row, 0-255 (base64 in JSON)
+	WF         []byte    `json:"wf,omitempty"`    // newest waterfall row, 0-255 (base64 in JSON)
+	Level      *levelMsg `json:"level,omitempty"` // receive audio level, dBFS
 	Running    bool      `json:"running"`
 	Key        bool      `json:"key"`
 	Signal     bool      `json:"signal"`

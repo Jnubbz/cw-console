@@ -79,6 +79,15 @@
   .warn { border-radius: 8px; padding: 8px 12px; }
   #pwwarn { background: #4a3410; border: 1px solid #7a5a1c; color: #f6e2b6; }
   #pwrwarn { background: #4c1416; border: 1px solid #7c2427; }
+  #audiowarn { background: #3d3115; border: 1px solid #6b5420; display: flex; align-items: center; gap: 10px; }
+  #audiowarn.clip { background: #4c1416; border-color: #7c2427; }
+  #audiowarn[hidden] { display: none; }
+  #lvl { position: relative; width: 70px; height: 8px; border-radius: 4px; background: rgba(255,255,255,.08); overflow: hidden; align-self: center; }
+  #lvl[hidden] { display: none; }
+  #lvl i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--brass); transition: width .1s linear; }
+  #lvl.quiet i { background: #e2ae4a; }
+  #lvl.clip i { background: #e5484d; }
+  .val.low { color: #e2ae4a; }
   #update { background: var(--update-bg); border: 1px solid var(--update-edge); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   #update[hidden] { display: none; }
   #status:empty { display: none; }
@@ -285,6 +294,7 @@
   <span class="spacer"></span>
   <span id="boxinfo" class="dim"></span>
   <span id="radioname" class="dim" title="The radio profile in use (Setup to change)"></span>
+  <span id="lvl" hidden title="Receive audio level"><i></i></span>
   <button id="start" class="primary" title="Start or stop listening to the input">Start</button>
   <button id="rigbtn" title="FT-710: VFO A/B, split, clarifier, power, tuner and SWR sweep (over CAT)">Rig</button>
   <button id="setupbtn" title="Radio, audio and decoder settings">Setup</button>
@@ -293,6 +303,7 @@
 </header>
 <div id="pwwarn" class="warn" style="display:none">This box still has the default password. Press <b>&#9881; Box</b> and change it before you take it out.</div>
 <div id="pwrwarn" class="warn" style="display:none"></div>
+<div id="audiowarn" class="warn" hidden><span id="awText"></span><span class="spacer"></span><button id="awFix" class="primary" hidden>RF gain to 100%</button></div>
 <div id="update" class="warn" hidden><span id="updText">A new version of CW Console is ready.</span><span class="spacer"></span>
   <button id="updLater">Later</button><button id="updGo" class="primary">Install and restart</button></div>
 <div id="actbar">
@@ -413,6 +424,8 @@
       <button data-qclar="-50">-50</button><span id="qClar">+0</span><button data-qclar="50">+50</button>
     </div>
     <div class="row"><label for="qPwr" style="min-width:auto">Power</label><input id="qPwr" type="range" min="5" max="100" step="1" style="flex:1;min-width:0"><span class="val" id="qPwrv" style="min-width:44px;text-align:right"></span></div>
+    <div class="row" title="RF gain (the radio's RF/SQL knob). Turned well down, weak signals never reach the decoder."><label for="qRf" style="min-width:auto">RF</label><input id="qRf" type="range" min="0" max="100" step="1" style="flex:1;min-width:0"><span class="val" id="qRfv" style="min-width:44px;text-align:right"></span></div>
+    <div class="row" title="AF gain: the radio's volume knob"><label for="qAf" style="min-width:auto">AF</label><input id="qAf" type="range" min="0" max="100" step="1" style="flex:1;min-width:0"><span class="val" id="qAfv" style="min-width:44px;text-align:right"></span></div>
     <div id="qMsg"></div>
   </div>
   <div class="sp" id="qDecoder">
@@ -686,6 +699,7 @@ function applyState(st) {
   document.body.classList.toggle("boxui", !!st.appliance);
   document.body.classList.toggle("ft8mode", s.mode === "ft8");
   if (st.wf) cwfPush(st.wf);
+  renderLevel(st);
   if (!recent("pitch")) $("pitch").value = s.pitch;
   $("pitchv").textContent = Math.round(s.pitch) + " Hz";
   if (!recent("sens")) $("sens").value = Math.round(s.sensitivity * 100);
@@ -2023,11 +2037,11 @@ function qRender(r) { // from any rig read (the Rig sheet, the strip's poll, a b
   if (!r || !r.state) {
     if (r && r.error) { msg.className = "err"; msg.textContent = r.error.length > 120 ? "Can't reach the radio over CAT (Setup > Radio > CAT port)" : r.error; msg.title = r.error; }
     for (const b of $("qRadio").querySelectorAll("button:not(#qMore)")) b.disabled = true;
-    $("qPwr").disabled = true;
+    $("qPwr").disabled = $("qRf").disabled = $("qAf").disabled = true;
     return;
   }
   for (const b of $("qRadio").querySelectorAll("button")) b.disabled = false;
-  $("qPwr").disabled = false;
+  $("qPwr").disabled = $("qRf").disabled = $("qAf").disabled = false;
   msg.className = ""; msg.textContent = ""; msg.title = r.port || "";
   const st = r.state;
   $("qVfo").textContent = fmtVFO(st.freqA);
@@ -2040,7 +2054,17 @@ function qRender(r) { // from any rig read (the Rig sheet, the strip's poll, a b
   for (const b of $("qBands").children) b.setAttribute("aria-pressed", String(b.dataset.band === band));
   if (!recent("qPwr")) $("qPwr").value = st.powerW;
   $("qPwrv").textContent = (recent("qPwr") ? $("qPwr").value : st.powerW) + " W";
+  for (const [id, raw] of [["qRf", st.rfGain], ["qAf", st.afGain]]) {
+    const pct = Math.round(raw * 100 / 255);
+    if (!recent(id)) $(id).value = pct;
+    $(id + "v").textContent = (recent(id) ? $(id).value : pct) + "%";
+  }
+  $("qRfv").classList.toggle("low", rfLow(st));
+  $("qRfv").title = rfLow(st) ? "RF gain is turned well down: weak signals won't make it to the decoder" : "";
 }
+// RF gain under 30%: on purpose sometimes (a loud band), but it's how decoding quietly dies.
+const rfLow = (st) => !!st && st.rfGain !== undefined && st.rfGain < 77;
+const pct255 = (p) => Math.round(Math.max(0, Math.min(100, +p)) * 255 / 100);
 $("qMore").onclick = rigOpen;
 $("qSplit").onclick = () => rigQueue(() => RIG.st && rigCall("split", RIG.st.split ? 0 : 1));
 $("qSwap").onclick = () => rigDo("swap");
@@ -2058,6 +2082,39 @@ for (const b of $("qRadio").querySelectorAll("button[data-qclar]")) b.onclick = 
 });
 $("qPwr").oninput = () => { touched.qPwr = Date.now(); $("qPwrv").textContent = $("qPwr").value + " W"; };
 $("qPwr").onchange = () => { touched.qPwr = Date.now(); rigDo("power", $("qPwr").value); };
+for (const [id, act] of [["qRf", "rfGain"], ["qAf", "afGain"]]) {
+  $(id).oninput = () => { touched[id] = Date.now(); $(id + "v").textContent = $(id).value + "%"; };
+  $(id).onchange = () => { touched[id] = Date.now(); rigDo(act, pct255($(id).value)); };
+}
+$("awFix").onclick = () => { touched.qRf = 0; rigDo("rfGain", 255); };
+
+// ---- receive audio: the meter by Start, and a warning when it's silent or clipping ----
+const AUD = { quietSince: 0, clipSince: 0 };
+function renderLevel(st) {
+  const lv = st.level, cw = st.settings.mode === "cw";
+  const m = $("lvl");
+  m.hidden = !lv || !st.running;
+  let warn = "", clip = false, fix = false;
+  if (lv && st.running) {
+    // -60 dBFS (left end) to 0 dBFS (right end), by the peak
+    m.firstElementChild.style.width = Math.max(0, Math.min(100, (lv.peak + 60) / 60 * 100)) + "%";
+    m.title = `Receive audio: peak ${lv.peak.toFixed(1)} dBFS, average ${lv.rms.toFixed(1)} dBFS`;
+    const quiet = lv.peak < -50;
+    clip = lv.peak > -1;
+    m.classList.toggle("quiet", quiet); m.classList.toggle("clip", clip);
+    AUD.quietSince = quiet ? (AUD.quietSince || Date.now()) : 0;
+    AUD.clipSince = clip ? (AUD.clipSince || Date.now()) : 0; // a static crash alone isn't worth a warning
+    if (cw && AUD.clipSince && Date.now() - AUD.clipSince > 3000) warn = "The receive audio is clipping (hitting full scale), which garbles decoding. Turn down the radio's USB audio output, or the input level in your computer's sound settings.";
+    else if (cw && AUD.quietSince && Date.now() - AUD.quietSince > 5000) {
+      if (rfLow(RIG.st)) { warn = `Hardly any audio from the radio: RF gain is at ${Math.round(RIG.st.rfGain * 100 / 255)}%, so signals aren't getting through.`; fix = true; }
+      else warn = "Hardly any audio from the radio. Check RF gain, the radio's USB audio output level, and the audio input picked in Setup.";
+    }
+  } else AUD.quietSince = AUD.clipSince = 0;
+  $("audiowarn").hidden = !warn;
+  $("audiowarn").classList.toggle("clip", clip);
+  $("awText").textContent = warn;
+  $("awFix").hidden = !fix;
+}
 
 // who's on the band: POTA activators first, then RBN by strength; click to work
 function qSpots() {
