@@ -22,6 +22,7 @@ import (
 
 const (
 	specLo, specHi, specStep = 200, 1400, 10
+	cwWfCols                 = 241 // CW waterfall: 5 Hz columns over specLo..specHi
 	pitchMin, pitchMax       = 300, 1200
 	breakAfter               = 2500 * time.Millisecond
 	historyCap               = 200_000 // transcript bytes kept for page reloads
@@ -130,6 +131,10 @@ type Engine struct {
 	rp rigPanel // FT-710 rig panel and SWR sweep (Mac and Pi box)
 
 	feeds spotFeeds // RBN and POTA spots for the band strip
+
+	wf     *cw.Waterfall // waterfall rows (one per state update)
+	wfRow  []byte
+	wfRate int
 }
 
 func newEngine(h *hub) *Engine {
@@ -469,6 +474,13 @@ func (e *Engine) updateSpectrumLocked() {
 	if e.rate == 0 {
 		return
 	}
+	if e.wf == nil || int(e.wfRate) != e.rate {
+		e.wf, e.wfRate = cw.NewWaterfall(float32(e.rate), specLo, specHi, cwWfCols), e.rate
+	}
+	e.wfRow = nil
+	if e.audioRunning() {
+		e.wfRow = e.wf.Row(e.hist)
+	}
 	n := e.rate * 3 / 10
 	if len(e.hist) < n {
 		return
@@ -695,7 +707,7 @@ func (e *Engine) logFT8(l *ft8Log, manual bool) {
 }
 
 func (e *Engine) stateLocked() event {
-	s := &stateMsg{Settings: e.st, Spec: e.spec, Running: e.audioRunning(),
+	s := &stateMsg{Settings: e.st, Spec: e.spec, WF: e.wfRow, Running: e.audioRunning(),
 		FocusWidth: deepcw.FocusWidth, SIMD: deepcw.SIMDName()}
 	if e.dec != nil {
 		s.Key = e.dec.KeyDown()
@@ -730,6 +742,7 @@ func (e *Engine) stateLocked() event {
 type stateMsg struct {
 	Settings   Settings  `json:"settings"`
 	Spec       []float32 `json:"spec"`
+	WF         []byte    `json:"wf,omitempty"` // newest waterfall row, 0-255 (base64 in JSON)
 	Running    bool      `json:"running"`
 	Key        bool      `json:"key"`
 	Signal     bool      `json:"signal"`

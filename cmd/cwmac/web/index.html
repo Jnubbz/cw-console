@@ -14,15 +14,27 @@
   @font-face { font-family: "Plex Mono"; src: url(/fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2"); font-weight: 600; font-display: swap; }
   /* Forest at night: a green-slate field station, brass for POTA and controls, green for
      what's heard, red only for being on the air. */
+  /* Default: a dark station console, blue accents. POTA mode (and the Pi box) keeps the
+     green "forest at night" field look. --brass is the accent in both (the name is old). */
   :root {
-    --bg: #121a17; --panel: #19231f; --well: #0c1210; --edge: #2a3832; --edge2: #384a42;
-    --text: #e3ebe6; --dim: #8ea198; --faint: #5f7169;
-    --brass: #e2ae4a; --green: #74d496; --red: #e5484d; --blue: #92c7ff;
-    --btn: #22302a; --btnh: #2c3d35;
+    --bg: #0e1014; --panel: #161a20; --well: #0a0c10; --edge: #252b34; --edge2: #343c47;
+    --text: #e6e9ef; --dim: #8b95a5; --faint: #5b6574;
+    --brass: #4ea1ff; --green: #5fd38d; --red: #e5484d; --blue: #92c7ff; --pota: #e2ae4a; --rx: #d6e6ff;
+    --btn: #1c2129; --btnh: #252c36; --sep: #1c2129;
+    --primary: #1d4f8c; --primary-edge: #2f6fbd; --primary-h: #235ca3; --sel-bg: #16304f;
+    --update-bg: #12263d; --update-edge: #2f6fbd;
     --ui: "Plex Cond", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif;
     --mono: "Plex Mono", ui-monospace, Menlo, Consolas, monospace;
     /* legacy names the script and older rules use */
     --dark: var(--well); --amber: var(--brass); --teal: #2fb38c;
+  }
+  body.pota {
+    --bg: #121a17; --panel: #19231f; --well: #0c1210; --edge: #2a3832; --edge2: #384a42;
+    --text: #e3ebe6; --dim: #8ea198; --faint: #5f7169;
+    --brass: #e2ae4a; --green: #74d496; --rx: #74d496;
+    --btn: #22302a; --btnh: #2c3d35; --sep: var(--sep);
+    --primary: #23573c; --primary-edge: #2f7a52; --primary-h: #2a6847; --sel-bg: #4a3a17;
+    --update-bg: #183a28; --update-edge: #2f7a52;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 15px/1.35 var(--ui); }
@@ -43,8 +55,8 @@
   button:hover:not(:disabled) { background: var(--btnh); }
   :focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
   button:disabled, select:disabled { opacity: .4; cursor: default; }
-  button.primary { background: #23573c; border-color: #2f7a52; font-weight: 600; }
-  button.primary:hover:not(:disabled) { background: #2a6847; }
+  button.primary { background: var(--primary); border-color: var(--primary-edge); font-weight: 600; }
+  button.primary:hover:not(:disabled) { background: var(--primary-h); }
   button.danger { background: #5b2023; border-color: #85302f; font-weight: 600; }
   button.danger:hover:not(:disabled) { background: #6c2629; }
   input[type=checkbox] { accent-color: var(--brass); width: 17px; height: 17px; margin: 0; }
@@ -67,7 +79,7 @@
   .warn { border-radius: 8px; padding: 8px 12px; }
   #pwwarn { background: #4a3410; border: 1px solid #7a5a1c; color: #f6e2b6; }
   #pwrwarn { background: #4c1416; border: 1px solid #7c2427; }
-  #update { background: #183a28; border: 1px solid #2f7a52; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #update { background: var(--update-bg); border: 1px solid var(--update-edge); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   #update[hidden] { display: none; }
   #status:empty { display: none; }
   #status { color: var(--dim); min-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
@@ -92,7 +104,7 @@
   #todayList { max-height: 50vh; overflow: auto; background: var(--well); border: 1px solid var(--edge); border-radius: 8px; }
   #todayList table { width: 100%; border-collapse: collapse; font: 14px var(--mono); }
   #todayList th { position: sticky; top: 0; background: var(--panel); color: var(--dim); font: 600 13px var(--ui); text-align: left; padding: 6px 8px; }
-  #todayList td { padding: 4px 8px; border-top: 1px solid #1f2b26; white-space: nowrap; }
+  #todayList td { padding: 4px 8px; border-top: 1px solid var(--sep); white-space: nowrap; }
   #todayList td:first-child { color: var(--faint); }
   #todayList tr.dupe td { color: var(--faint); text-decoration: line-through; }
   #todayList .empty { padding: 12px; color: var(--faint); font-family: var(--ui); }
@@ -103,7 +115,7 @@
   /* CW */
   #spec { width: 100%; height: 108px; background: var(--well); border-radius: 7px; cursor: crosshair; display: block; }
   #log { flex: 1; min-height: 120px; margin: 0; padding: 10px 12px; overflow-y: auto; background: var(--well);
-    color: var(--green); border-radius: 8px; border: 1px solid var(--edge); font: 18px/1.45 var(--mono);
+    color: var(--rx); border-radius: 8px; border: 1px solid var(--edge); font: 18px/1.45 var(--mono);
     white-space: pre-wrap; word-break: break-word; }
   #sender { display: flex; flex-direction: column; gap: 8px; }
   #strip { display: flex; align-items: center; height: 32px; background: var(--well); border-radius: 7px;
@@ -165,7 +177,7 @@
   #ft8list .pota .m { color: var(--brass); font-weight: 600; }
   #ft8list .me { background: #3e1416; } #ft8list .me .m { color: #ffb4ad; font-weight: 600; }
   #ft8list .qso { background: #14293a; } #ft8list .qso .m { color: var(--blue); font-weight: 600; }
-  #ft8list .sep { border-top: 1px solid #1f2b26; margin-top: 3px; padding-top: 3px; }
+  #ft8list .sep { border-top: 1px solid var(--sep); margin-top: 3px; padding-top: 3px; }
   #ft8list .empty { color: var(--faint); padding: 10px 12px; font-family: var(--ui); }
 
   /* sheets */
@@ -220,12 +232,47 @@
   #rigModal .vfo .tx { color: var(--red); font-size: 12px; font-weight: 600; min-width: 22px; }
   #rigModal .mhz { font: 600 24px var(--mono); font-variant-numeric: tabular-nums; min-width: 9.5ch; }
   #rigModal input.mhzin { width: 118px; font-family: var(--mono); }
-  #rigModal button[aria-pressed="true"] { background: #4a3a17; border-color: var(--brass); color: var(--brass); font-weight: 600; }
+  #rigModal button[aria-pressed="true"], #side button[aria-pressed="true"] { background: var(--sel-bg); border-color: var(--brass); color: var(--brass); font-weight: 600; }
   #rigStat { font-size: 13px; }
   #rigBands { gap: 4px; }
   #rigBands button { min-width: 40px; padding: 6px 6px; font-variant-numeric: tabular-nums; }
   #rigStat.err { color: #ff8a80; }
   #swrPlot { width: 100%; height: 170px; background: var(--well); border: 1px solid var(--edge); border-radius: 8px; }
+  /* two columns on a wide screen: the station on the left, the controls you reach for on the right */
+  #layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 10px; }
+  #maincol { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; }
+  #side { display: flex; flex-direction: column; gap: 10px; min-width: 0; overflow-y: auto; }
+  body.ft8mode #layout, body.boxui #layout { grid-template-columns: minmax(0, 1fr); }
+  @media (max-width: 1080px) { /* stacked: the page scrolls, nothing is squeezed */
+    html, body { height: auto; }
+    #layout { display: flex; flex-direction: column; }
+    #maincol { min-height: auto; }
+    #log { flex: none; height: 260px; }
+    #side { overflow: visible; }
+  }
+  .sp { background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .sp h3 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); display: flex; align-items: center; gap: 8px; }
+  .sp h3 .spacer { flex: 1; }
+  .sp h3 button { min-height: 24px; padding: 2px 8px; font-size: 12px; letter-spacing: 0; text-transform: none; }
+  #qVfo { font: 600 30px var(--mono); font-variant-numeric: tabular-nums; letter-spacing: .01em; line-height: 1.1; }
+  #qVfoB { font: 13px var(--mono); color: var(--dim); }
+  #qVfoB .tx { color: var(--red); font-weight: 600; }
+  #qBands { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  #qBands button, .qgrid button { min-height: 30px; padding: 4px 0; font-variant-numeric: tabular-nums; }
+  .qgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  #qClar { font: 600 14px var(--mono); text-align: center; align-self: center; }
+  #qMsg { font-size: 12px; color: var(--faint); }
+  #qMsg.err { color: #ff8a80; }
+  #qList { display: flex; flex-direction: column; gap: 2px; max-height: 260px; overflow-y: auto; font-size: 13px; }
+  #qList .it { display: grid; grid-template-columns: 78px 1fr auto; gap: 8px; padding: 4px 6px; border-radius: 6px; cursor: pointer; align-items: baseline; }
+  #qList .it:hover { background: var(--btn); }
+  #qList .it .c { font-family: var(--mono); font-weight: 600; }
+  #qList .it .f { font-family: var(--mono); color: var(--dim); }
+  #qList .it .d { color: var(--faint); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #qList .it.pota .c { color: var(--pota); }
+  #qList .empty { color: var(--faint); padding: 4px 6px; }
+  /* the waterfall: spectrum on top, history scrolling down */
+  #spec { height: 290px !important; }
 </style>
 </head>
 <body>
@@ -255,6 +302,7 @@
   <span id="actwarn"></span>
 </div>
 
+<div id="layout"><div id="maincol">
 <div class="row cwonly">
   <span id="cwbandrow" class="grp" style="display:none">
     <label for="cwband" title="Moves the rig to the middle of that band's General CW segment">Band</label>
@@ -347,6 +395,38 @@
     <span class="spacer"></span><span id="opsstat"></span>
   </div>
 </div>
+</div><!-- #maincol -->
+<aside id="side" class="cwonly">
+  <div class="sp" id="qRadio">
+    <h3>Radio <span class="spacer"></span><span id="qMode" class="dim" style="letter-spacing:0;text-transform:none"></span><button id="qMore" title="All rig controls and the SWR sweep">More...</button></h3>
+    <div id="qVfo" title="VFO A">-</div>
+    <div id="qVfoB">B -</div>
+    <div id="qBands"></div>
+    <div class="qgrid">
+      <button id="qSplit" aria-pressed="false" title="Split: listen on A, transmit on B">Split</button>
+      <button id="qSwap" title="Exchange VFO A and B">A&#8644;B</button>
+      <button id="qUp1" title="Split up 1 kHz">Up 1</button>
+      <button id="qAtoB" title="Copy A to B">A&#8594;B</button>
+    </div>
+    <div class="qgrid" title="Clarifier (RIT): receive offset">
+      <button id="qRit" aria-pressed="false" title="Clarifier on receive">RIT</button>
+      <button data-qclar="-50">-50</button><span id="qClar">+0</span><button data-qclar="50">+50</button>
+    </div>
+    <div class="row"><label for="qPwr" style="min-width:auto">Power</label><input id="qPwr" type="range" min="5" max="100" step="1" style="flex:1;min-width:0"><span class="val" id="qPwrv" style="min-width:44px;text-align:right"></span></div>
+    <div id="qMsg"></div>
+  </div>
+  <div class="sp" id="qDecoder">
+    <h3>Decoder</h3>
+    <div class="row"><select id="decoder" style="flex:1;min-width:0"><option value="classic">Classic (light on CPU)</option><option value="ai">AI (DeepCW neural net)</option></select></div>
+    <div class="row"><label for="sens" style="min-width:auto">Sensitivity</label><input id="sens" type="range" min="0" max="100" step="1" style="flex:1;min-width:0"><span class="val" id="sensv" style="min-width:40px;text-align:right"></span></div>
+    <div class="row"><label><input id="improved" type="checkbox"> Improved tracking</label></div>
+  </div>
+  <div class="sp" id="qSpots">
+    <h3>On the band <span class="spacer"></span><span id="qSpotsN" class="dim" style="letter-spacing:0;text-transform:none"></span></h3>
+    <div id="qList"><div class="empty">Spots appear here (Setup &gt; Operating &gt; Spots)</div></div>
+  </div>
+</aside>
+</div><!-- #layout -->
 
 <div class="modal" id="setupModal"><div class="card" style="max-width:640px">
   <div class="row"><h2>Setup</h2><span class="spacer"></span><button id="setupClose" class="primary">Done</button></div>
@@ -382,13 +462,10 @@
   </section>
   <section>
     <h3>CW decoder</h3>
-    <div class="row"><label for="decoder">Decoder</label><select id="decoder"><option value="classic">Classic (light on CPU)</option><option value="ai">AI - DeepCW neural net</option></select>
-      <button id="bench">Benchmark...</button></div>
+    <div class="row"><button id="bench">Benchmark the AI decoder...</button></div>
     <div class="row"><label for="aispeed">AI speed</label><select id="aispeed"><option value="0">Auto (Eco on battery)</option><option value="1">Eco</option>
       <option value="2">Balanced</option><option value="3">Fast</option><option value="4">Max</option></select>
       <label><input id="focus" type="checkbox"> Focus on pitch</label></div>
-    <div class="row"><label for="sens">Sensitivity</label><input id="sens" type="range" min="0" max="100" step="1" style="flex:1;min-width:100px"><span class="val" id="sensv"></span>
-      <label><input id="improved" type="checkbox"> Improved tracking</label></div>
     <div class="row"><button id="wavbtn">Decode WAV file...</button><input id="wav" type="file" accept=".wav,audio/wav" hidden></div>
   </section>
   <section>
@@ -605,6 +682,10 @@ function connect() {
 function applyState(st) {
   S = st;
   const s = st.settings;
+  document.body.classList.toggle("pota", !!(st.appliance || s.potaMode)); // the green field look
+  document.body.classList.toggle("boxui", !!st.appliance);
+  document.body.classList.toggle("ft8mode", s.mode === "ft8");
+  if (st.wf) cwfPush(st.wf);
   if (!recent("pitch")) $("pitch").value = s.pitch;
   $("pitchv").textContent = Math.round(s.pitch) + " Hz";
   if (!recent("sens")) $("sens").value = Math.round(s.sensitivity * 100);
@@ -704,29 +785,70 @@ $("showsender").addEventListener("change", () => { try { localStorage.setItem("c
 
 // ---------- spectrum ----------
 const cv = $("spec");
+// Spectrum on top, waterfall scrolling below it (rows from the app, ten a second).
+const CWF = { c: document.createElement("canvas"), lut: null, theme: "" };
+CWF.c.width = 241; CWF.c.height = 240;
+function cwLUT() { // dark -> deep blue -> cyan -> yellow -> white (POTA: through green)
+  const pota = document.body.classList.contains("pota"), key = pota ? "p" : "d";
+  if (CWF.theme === key) return CWF.lut;
+  const stops = pota
+    ? [[0, 10, 16, 13], [70, 14, 60, 40], [140, 40, 170, 100], [200, 220, 200, 70], [255, 255, 250, 220]]
+    : [[0, 8, 10, 16], [70, 14, 34, 96], [140, 30, 140, 220], [200, 120, 230, 240], [235, 250, 230, 120], [255, 255, 255, 255]];
+  const lut = new Uint8ClampedArray(256 * 3);
+  for (let v = 0; v < 256; v++) {
+    let k = 0; while (k < stops.length - 2 && v > stops[k + 1][0]) k++;
+    const a = stops[k], b = stops[k + 1], t = (v - a[0]) / Math.max(1, b[0] - a[0]);
+    for (let c = 0; c < 3; c++) lut[v * 3 + c] = a[c + 1] + (b[c + 1] - a[c + 1]) * Math.min(1, Math.max(0, t));
+  }
+  CWF.lut = lut; CWF.theme = key; return lut;
+}
+function cwfPush(b64) {
+  if (!b64) return;
+  const bin = atob(b64), n = bin.length, lut = cwLUT(), g = CWF.c.getContext("2d");
+  if (CWF.c.width !== n) { CWF.c.width = n; }
+  g.drawImage(CWF.c, 0, 1); // scroll down a row
+  const row = g.createImageData(n, 1);
+  for (let x = 0; x < n; x++) { const v = bin.charCodeAt(x) * 3; row.data.set([lut[v], lut[v + 1], lut[v + 2], 255], x * 4); }
+  g.putImageData(row, 0, 0);
+}
 function drawSpec() {
   const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
-  if (cv.width !== W * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
+  if (cv.width !== W * dpr || cv.height !== H * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
   const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  g.fillStyle = "#0c1210"; g.fillRect(0, 0, W, H);
+  const css = getComputedStyle(document.body), col = (v) => css.getPropertyValue(v).trim();
+  g.fillStyle = col("--well"); g.fillRect(0, 0, W, H);
   if (!S) return;
-  const lo = 200, hi = 1400, plotH = H - 16, fx = (f) => (W - 1) * (f - lo) / (hi - lo);
+  const lo = 200, hi = 1400, specH = 78, scaleH = 16, wfTop = specH + scaleH, wfH = H - wfTop;
+  const fx = (f) => (W - 1) * (f - lo) / (hi - lo);
   const s = S.settings, p = s.pitch, ai = s.decoder === "ai";
-  g.fillStyle = "#1d2b25";
-  if (ai && !s.aiFocus) g.fillRect(fx(400), 0, fx(1200) - fx(400), plotH);
-  else { const half = ai ? S.focusWidth / 2 : 30; g.fillRect(fx(p - half), 0, fx(p + half) - fx(p - half), plotH); }
-  g.fillStyle = "#74d496";
-  S.spec.forEach((v, i) => {
-    const f = lo + i * 10, x0 = fx(f - 5), x1 = fx(f + 5) - 1, h = v / 40 * (plotH - 4);
-    if (h > 0) g.fillRect(x0, plotH - h, Math.max(1, x1 - x0), h);
-  });
-  g.strokeStyle = "#2a3832"; g.beginPath(); g.moveTo(0, plotH + .5); g.lineTo(W, plotH + .5); g.stroke();
-  g.fillStyle = "#8ea198"; g.font = "12px \"Plex Cond\", system-ui, sans-serif"; g.textAlign = "center";
-  for (let f = 400; f <= 1200; f += 200) { const x = fx(f); g.fillRect(x, plotH, 1, 3); g.fillText(String(f), x, plotH + 13); }
-  g.strokeStyle = "#e2ae4a"; g.lineWidth = 2; g.beginPath(); g.moveTo(fx(p), 0); g.lineTo(fx(p), plotH); g.stroke(); g.lineWidth = 1;
-  g.textAlign = "left"; g.fillStyle = "#5f7169"; g.fillText("Tap a signal to tune", 6, 14);
-  g.fillStyle = S.key ? "#74d496" : S.signal ? "#2a5a3c" : "#2a3832"; g.fillRect(W - 62, 6, 14, 14);
-  g.fillStyle = "#8ea198"; g.fillText("Key", W - 42, 18);
+  // waterfall (history), smoothed to the width
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
+  g.drawImage(CWF.c, 0, 0, CWF.c.width, Math.min(CWF.c.height, Math.ceil(wfH)), 0, wfTop, W, Math.min(CWF.c.height, Math.ceil(wfH)) * (wfH / Math.min(CWF.c.height, Math.ceil(wfH))));
+  // the passband the decoder listens to
+  const pass = ai && !s.aiFocus ? [400, 1200] : [p - (ai ? S.focusWidth / 2 : 30), p + (ai ? S.focusWidth / 2 : 30)];
+  g.fillStyle = col("--brass"); g.globalAlpha = 0.12;
+  g.fillRect(fx(pass[0]), 0, fx(pass[1]) - fx(pass[0]), H); g.globalAlpha = 1;
+  // spectrum: a filled line
+  const pts = S.spec.map((v, i) => [fx(lo + i * 10), specH - 4 - v / 40 * (specH - 10)]);
+  const grad = g.createLinearGradient(0, 0, 0, specH);
+  grad.addColorStop(0, col("--brass")); grad.addColorStop(1, "transparent");
+  g.beginPath(); g.moveTo(0, specH);
+  for (const [x, y] of pts) g.lineTo(x, y);
+  g.lineTo(W, specH); g.closePath(); g.globalAlpha = 0.28; g.fillStyle = grad; g.fill(); g.globalAlpha = 1;
+  g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+  g.strokeStyle = col("--brass"); g.lineWidth = 1.5; g.stroke(); g.lineWidth = 1;
+  // scale between them
+  g.fillStyle = col("--panel"); g.fillRect(0, specH, W, scaleH);
+  g.fillStyle = col("--dim"); g.font = "11px " + col("--mono"); g.textAlign = "center";
+  for (let f = 300; f <= 1300; f += 100) {
+    const x = fx(f); g.fillRect(x, specH, 1, f % 200 === 0 ? 5 : 3);
+    if (f % 200 === 0) g.fillText(String(f), x, specH + 14);
+  }
+  // pitch
+  g.strokeStyle = col("--brass"); g.lineWidth = 2; g.beginPath(); g.moveTo(fx(p), 0); g.lineTo(fx(p), H); g.stroke(); g.lineWidth = 1;
+  g.textAlign = "left"; g.fillStyle = col("--faint"); g.font = "12px " + col("--ui"); g.fillText("Click a signal to tune", 8, 15);
+  g.fillStyle = S.key ? col("--green") : S.signal ? "rgba(95,211,141,.35)" : col("--edge"); g.fillRect(W - 62, 6, 14, 14);
+  g.fillStyle = col("--dim"); g.fillText("Key", W - 42, 18);
 }
 function tuneAt(ev) {
   const r = cv.getBoundingClientRect(), f = 200 + (ev.clientX - r.left) / r.width * 1200;
@@ -1565,7 +1687,7 @@ function rigRender(r) {
   }
   stat.className = "dim"; stat.title = r.port || "";
   stat.textContent = "FT-710 on " + (r.port || "").split("/").pop();
-  const st = r.state; RIG.st = st; swFollow(st); rigFollow(r);
+  const st = r.state; RIG.st = st; swFollow(st); rigFollow(r); qRender(r);
   $("rigA").textContent = fmtVFO(st.freqA); $("rigB").textContent = fmtVFO(st.freqB);
   const band = rigBandOf(st.freqA);
   for (const b of $("rigBands").children) b.setAttribute("aria-pressed", String(b.dataset.band === band));
@@ -1704,7 +1826,7 @@ function sweepDraw(s) {
   const w = c.clientWidth, h = c.clientHeight; if (!w) return;
   c.width = w * dpr; c.height = h * dpr;
   const g = c.getContext("2d"); g.scale(dpr, dpr); g.clearRect(0, 0, w, h);
-  const css = getComputedStyle(document.documentElement), col = (v) => css.getPropertyValue(v).trim();
+  const css = getComputedStyle(document.body), col = (v) => css.getPropertyValue(v).trim();
   const pts = s.points || [];
   if (!s.fromHz) { g.fillStyle = col("--faint"); g.font = "13px " + col("--ui"); g.fillText("SWR across the band appears here.", 12, 24); return; }
   const L = 34, R = 10, T = 10, B = 22, maxY = Math.max(3, Math.min(5, Math.ceil(Math.max(1, ...pts.map((p) => p.swr)))));
@@ -1789,11 +1911,11 @@ async function stripTick() {
   if (Date.now() > rigMissUntil && !(RIG.sweep && RIG.sweep.running)) {
     try {
       const r = await api("/api/rig");
-      if (r.state) { STRIP.dial = r.state.freqA; STRIP.mode = r.state.mode; rigBand = rigBandOf(r.state.freqA); rigFollow(r); }
-      else { STRIP.dial = 0; rigMissUntil = Date.now() + 30000; }
+      if (r.state) { STRIP.dial = r.state.freqA; STRIP.mode = r.state.mode; rigBand = rigBandOf(r.state.freqA); RIG.st = r.state; rigFollow(r); qRender(r); }
+      else { STRIP.dial = 0; rigMissUntil = Date.now() + 30000; qRender(r); }
     } catch { STRIP.dial = 0; }
   }
-  if ($("stripbox").hidden) return;
+  if ($("stripbox").hidden) { STRIP.data = null; qSpots(); return; }
   if (!band) band = rigBand || STRIP.band || "20m"; // the rig's band, over CAT
   const d = await api("/api/spots?band=" + encodeURIComponent(band));
   if (!d || !d.bands) return;
@@ -1806,14 +1928,14 @@ async function stripTick() {
   const h = d.heard || [];
   $("heardme").className = h.length ? "" : "none";
   $("heardme").textContent = h.length ? `Heard by ${h.length} skimmer${h.length > 1 ? "s" : ""}, best ${h[0].snr} dB (${h[0].skimmer})` : (d.myCall ? "Not heard by the RBN yet" : "");
-  stripDraw();
+  stripDraw(); qSpots();
 }
 function stripDraw() {
   const c = $("bstrip"), dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
   if (!w) return;
   c.width = w * dpr; c.height = h * dpr;
   const g = c.getContext("2d"); g.scale(dpr, dpr); g.clearRect(0, 0, w, h);
-  const css = getComputedStyle(document.documentElement), col = (v) => css.getPropertyValue(v).trim();
+  const css = getComputedStyle(document.body), col = (v) => css.getPropertyValue(v).trim();
   if (!STRIP.to) return;
   const L = 6, R = 6, x = (khz) => L + (w - L - R) * (khz - STRIP.from) / (STRIP.to - STRIP.from);
   g.font = "10px " + col("--mono"); g.fillStyle = col("--faint"); g.strokeStyle = col("--edge");
@@ -1827,13 +1949,13 @@ function stripDraw() {
   for (const s of sorted) {
     const px = x(s.khz), pota = s.source === "pota";
     const strong = Math.max(0.25, Math.min(1, (s.snr || 10) / 30));
-    g.strokeStyle = pota ? col("--brass") : `rgba(116, 212, 150, ${strong})`;
+    g.strokeStyle = pota ? col("--pota") : col("--brass"); g.globalAlpha = pota ? 1 : strong;
     g.lineWidth = pota ? 3 : 2;
-    g.beginPath(); g.moveTo(px, h - 14); g.lineTo(px, 4); g.stroke();
+    g.beginPath(); g.moveTo(px, h - 14); g.lineTo(px, 4); g.stroke(); g.globalAlpha = 1;
     const label = (pota ? "P " : "") + s.call, lw = g.measureText(label).width;
     let row = px - last[0] > lw + 6 ? 0 : px - last[1] > lw + 6 ? 1 : -1;
     if (row >= 0) {
-      g.fillStyle = pota ? col("--brass") : col("--text");
+      g.fillStyle = pota ? col("--pota") : col("--text");
       g.fillText(label, Math.min(px + 3, w - lw), rows[row]);
       last[row] = px;
     }
@@ -1865,9 +1987,9 @@ $("bstrip").onmousemove = (ev) => {
   tip.style.top = "-30px";
 };
 $("bstrip").onmouseleave = () => { $("striptip").style.display = "none"; };
-$("bstrip").onclick = async (ev) => {
-  const { best } = stripNearest(ev); if (!best) return;
-  const s = best.s, hz = Math.round(s.khz * 1000);
+$("bstrip").onclick = (ev) => { const { best } = stripNearest(ev); if (best) workSpot(best.s); };
+async function workSpot(s) { // tune the radio to a spotted station in CW and put its call in the Call box
+  const hz = Math.round(s.khz * 1000);
   const r = await rigDo("freqA", hz);
   if (r && r.error) { note("Couldn't tune the radio: " + r.error); }
   else if (r && r.state && r.state.mode !== "3" && r.state.mode !== "7") await rigDo("mode", hz < 10e6 ? "7" : "3"); // CW
@@ -1884,6 +2006,71 @@ $("heardme").onclick = () => {
 $("stripband").onchange = stripTick;
 window.addEventListener("resize", stripDraw);
 setInterval(stripTick, 5000); setTimeout(stripTick, 1500);
+
+// ---- side column: the radio, the decoder, who's on the band ----
+for (const b of ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m"]) {
+  const btn = document.createElement("button"); btn.textContent = b.replace("m", ""); btn.title = b; btn.dataset.band = b;
+  btn.onclick = () => rigDo("band", b);
+  $("qBands").appendChild(btn);
+}
+function qRender(r) { // from any rig read (the Rig sheet, the strip's poll, a button)
+  const msg = $("qMsg");
+  if (!r || !r.state) {
+    if (r && r.error) { msg.className = "err"; msg.textContent = r.error.length > 120 ? "Can't reach the radio over CAT (Setup > Radio > CAT port)" : r.error; msg.title = r.error; }
+    for (const b of $("qRadio").querySelectorAll("button:not(#qMore)")) b.disabled = true;
+    $("qPwr").disabled = true;
+    return;
+  }
+  for (const b of $("qRadio").querySelectorAll("button")) b.disabled = false;
+  $("qPwr").disabled = false;
+  msg.className = ""; msg.textContent = ""; msg.title = r.port || "";
+  const st = r.state;
+  $("qVfo").textContent = fmtVFO(st.freqA);
+  $("qVfoB").innerHTML = `B ${fmtVFO(st.freqB)}` + (st.split ? ' <span class="tx">TX</span>' : "");
+  $("qMode").textContent = st.modeName;
+  $("qSplit").setAttribute("aria-pressed", String(st.split));
+  $("qRit").setAttribute("aria-pressed", String(st.clarRx));
+  $("qClar").textContent = (st.clarHz >= 0 ? "+" : "") + st.clarHz;
+  const band = rigBandOf(st.freqA);
+  for (const b of $("qBands").children) b.setAttribute("aria-pressed", String(b.dataset.band === band));
+  if (!recent("qPwr")) $("qPwr").value = st.powerW;
+  $("qPwrv").textContent = (recent("qPwr") ? $("qPwr").value : st.powerW) + " W";
+}
+$("qMore").onclick = rigOpen;
+$("qSplit").onclick = () => rigQueue(() => RIG.st && rigCall("split", RIG.st.split ? 0 : 1));
+$("qSwap").onclick = () => rigDo("swap");
+$("qAtoB").onclick = () => rigDo("atob");
+$("qUp1").onclick = () => rigQueue(async () => {
+  if (!RIG.st) return;
+  const r = await rigCall("freqB", RIG.st.freqA + 1000);
+  if (r && !r.error) await rigCall("split", 1);
+});
+$("qRit").onclick = () => rigQueue(() => RIG.st && rigCall("clarRx", RIG.st.clarRx ? 0 : 1));
+for (const b of $("qRadio").querySelectorAll("button[data-qclar]")) b.onclick = () => rigQueue(async () => {
+  if (!RIG.st) return;
+  const r = await rigCall("clarOffset", Math.max(-9999, Math.min(9999, RIG.st.clarHz + Number(b.dataset.qclar))));
+  if (r && !r.error && !r.state.clarRx && !r.state.clarTx) await rigCall("clarRx", 1);
+});
+$("qPwr").oninput = () => { touched.qPwr = Date.now(); $("qPwrv").textContent = $("qPwr").value + " W"; };
+$("qPwr").onchange = () => { touched.qPwr = Date.now(); rigDo("power", $("qPwr").value); };
+
+// who's on the band: POTA activators first, then RBN by strength; click to work
+function qSpots() {
+  const d = STRIP.data, list = $("qList");
+  if (!d || !d.on) { list.innerHTML = '<div class="empty">Spots are off (Setup &gt; Operating)</div>'; $("qSpotsN").textContent = ""; return; }
+  const sp = [...(d.spots || [])].sort((a, b) => (b.source === "pota") - (a.source === "pota") || (b.snr || 0) - (a.snr || 0));
+  $("qSpotsN").textContent = d.band ? `${d.band} · ${sp.length}` : "";
+  if (!sp.length) { list.innerHTML = '<div class="empty">Nobody spotted on this band in the last 15 minutes</div>'; return; }
+  list.replaceChildren(...sp.slice(0, 40).map((x) => {
+    const it = document.createElement("div"); it.className = "it" + (x.source === "pota" ? " pota" : "");
+    const c = document.createElement("span"); c.className = "c"; c.textContent = x.call;
+    const d2 = document.createElement("span"); d2.className = "d";
+    d2.textContent = x.park ? `${x.park} ${x.parkName || ""}` : `${x.snr} dB${x.wpm ? " · " + x.wpm + " wpm" : ""}${x.skimmers > 1 ? " · " + x.skimmers + " skimmers" : ""}`;
+    const f = document.createElement("span"); f.className = "f"; f.textContent = x.khz.toFixed(1);
+    it.append(c, d2, f); it.title = "Click to tune there and put the call in the Call box"; it.onclick = () => workSpot(x);
+    return it;
+  }));
+}
 </script>
 </body>
 </html>
