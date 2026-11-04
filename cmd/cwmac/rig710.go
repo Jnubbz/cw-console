@@ -221,6 +221,15 @@ func (a rigAction) cmds() ([]string, error) {
 			return nil, err
 		}
 		return one(ft710.SetPower(w))
+	case "rfGain", "afGain":
+		n, err := num()
+		if err != nil {
+			return nil, err
+		}
+		if a.Action == "rfGain" {
+			return one(ft710.SetRFGain(n))
+		}
+		return one(ft710.SetAFGain(n))
 	case "band":
 		return one(ft710.SelectBand(a.Value))
 	case "tune":

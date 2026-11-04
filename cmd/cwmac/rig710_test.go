@@ -44,7 +44,7 @@ func startFake710(t *testing.T) (string, *fake710) {
 	port := filepath.Join(t.TempDir(), "usb-Silicon_Labs_CP2105_Dual_USB_to_UART_Bridge_Controller_X-if00-port0")
 	os.Symlink("/dev/pts/"+strconv.Itoa(int(n)), port)
 	f := &fake710{v: map[string]string{"FA": "014058000", "FB": "014060000", "MD0": "3", "FT": "0",
-		"CF000": "00000", "CF001": "+0000", "PC": "050", "BI": "0", "ID": "0800"}}
+		"CF000": "00000", "CF001": "+0000", "PC": "050", "BI": "0", "ID": "0800", "RG0": "255", "AG0": "040"}}
 	go func() {
 		buf := make([]byte, 256)
 		var acc string
@@ -79,7 +79,7 @@ func (f *fake710) handle(cmd string) string {
 	defer f.mu.Unlock()
 	f.cmds = append(f.cmds, cmd)
 	body := strings.TrimSuffix(cmd, ";")
-	for _, k := range []string{"CF000", "CF001", "MD0", "FA", "FB", "FT", "PC", "BI", "ID"} {
+	for _, k := range []string{"CF000", "CF001", "MD0", "FA", "FB", "FT", "PC", "BI", "ID", "RG0", "AG0"} {
 		if strings.HasPrefix(body, k) {
 			if rest := body[len(k):]; rest != "" {
 				f.v[k] = rest
@@ -144,6 +144,8 @@ func TestRigPanelReadsAndSetsTheFT710(t *testing.T) {
 		{rigAction{"clarOffset", "-120"}, func() bool { return f.get("CF001") == "-0120" }},
 		{rigAction{"clarClear", ""}, func() bool { return f.get("CF001") == "+0000" }},
 		{rigAction{"power", "25"}, func() bool { return f.get("PC") == "025" }},
+		{rigAction{"rfGain", "30"}, func() bool { return f.get("RG0") == "030" }},
+		{rigAction{"afGain", "100"}, func() bool { return f.get("AG0") == "100" }},
 		{rigAction{"freqA", "7030000"}, func() bool { return f.get("FA") == "007030000" }},
 		{rigAction{"swap", ""}, func() bool { return f.get("FA") == "014060000" && f.get("FB") == "007030000" }},
 		{rigAction{"atob", ""}, func() bool { return f.get("FB") == "014060000" }},
