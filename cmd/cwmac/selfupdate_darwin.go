@@ -2,7 +2,7 @@
 
 package main
 
-// Installing an update on the Mac: the new CW Decoder.app is unpacked next to the running
+// Installing an update on the Mac: the new CW Console.app is unpacked next to the running
 // one (same disk, so the swap is two renames), checked, then swapped in. The old one is
 // thrown away; if the second rename fails the old one is put back. Then `open` starts the
 // new app (without opening another browser tab: the page reloads by itself).
@@ -27,13 +27,19 @@ func setupInstaller(u *desktopUpdater) {
 		}
 		return d, nil
 	}
+	installed := app
 	u.apply = func(zip, stage string) error {
 		defer os.RemoveAll(stage)
-		return swapApp(app, zip, stage)
+		to, err := swapApp(app, zip, stage)
+		if err == nil {
+			installed = to
+		}
+		return err
 	}
 	u.restart = func(quit func()) func() {
 		return func() {
-			cmd := exec.Command("/bin/sh", "-c", `sleep 1.5; exec /usr/bin/open -n "$1" --args -nobrowser`, "sh", app)
+			// The new app: its own window (CW Console.app), or this page reloading (-nobrowser).
+			cmd := exec.Command("/bin/sh", "-c", `sleep 1.5; exec /usr/bin/open -n "$1" --args -nobrowser`, "sh", installed)
 			cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 			cmd.Start()
 			quit()

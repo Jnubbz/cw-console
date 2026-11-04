@@ -2,15 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleName</key><string>CW Decoder</string>
-	<key>CFBundleDisplayName</key><string>CW Decoder</string>
-	<key>CFBundleIdentifier</key><string>com.kn0ble.cwdecoder</string>
-	<key>CFBundleExecutable</key><string>cw-decoder</string>
+	<key>CFBundleName</key><string>CW Console</string>
+	<key>CFBundleDisplayName</key><string>CW Console</string>
+	<key>CFBundleIdentifier</key><string>com.kn0ble.cwconsole</string>
+	<key>CFBundleExecutable</key><string>CW Console</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
-	<key>CFBundleShortVersionString</key><string>1.2</string>
-	<key>CFBundleVersion</key><string>4</string>
-	<key>LSMinimumSystemVersion</key><string>11.0</string>
-	<key>LSUIElement</key><true/>
+	<key>CFBundleShortVersionString</key><string>0.2.0</string>
+	<key>CFBundleVersion</key><string>0</string>
+	<key>LSMinimumSystemVersion</key><string>12.0</string>
+	<key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
 	<key>NSHighResolutionCapable</key><true/>
+	<key>NSMicrophoneUsageDescription</key><string>CW Console listens to your radio's audio (its USB sound card) to decode CW.</string>
 </dict>
 </plist>

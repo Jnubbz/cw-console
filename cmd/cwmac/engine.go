@@ -16,6 +16,7 @@ import (
 
 	"github.com/Jnubbz/cw-console/cw"
 	"github.com/Jnubbz/cw-console/deepcw"
+	"github.com/Jnubbz/cw-console/internal/appdata"
 	"github.com/Jnubbz/cw-console/ops"
 )
 
@@ -158,7 +159,10 @@ func supportDir() string {
 	if err != nil {
 		return "."
 	}
-	return filepath.Join(d, "CW Decoder")
+	if appliance {
+		return filepath.Join(d, "CW Decoder") // the box keeps its folder (it has no CW Decoder next to it)
+	}
+	return appdata.Dir(d) // CW Console's own folder, started from a copy of CW Decoder's
 }
 
 func logDir() string { return filepath.Join(supportDir(), "Logs") }

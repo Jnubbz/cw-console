@@ -19,6 +19,7 @@ import (
 
 	"github.com/Jnubbz/cw-console/cw"
 	"github.com/Jnubbz/cw-console/deepcw"
+	"github.com/Jnubbz/cw-console/internal/appdata"
 	"github.com/Jnubbz/cw-console/ops"
 )
 
@@ -46,7 +47,7 @@ const (
 	pitchMin   = 300
 	pitchMax   = 1200
 	breakAfter = 2500 * time.Millisecond // new line after this much silence
-	appTitle   = "CW Decoder"
+	appTitle   = "CW Console"
 )
 
 type app struct {
@@ -821,7 +822,7 @@ func settingsPath() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "CW Decoder", "settings.ini")
+	return filepath.Join(appdata.Dir(dir), "settings.ini") // CW Console's folder, started from CW Decoder's
 }
 
 func loadSettings() {

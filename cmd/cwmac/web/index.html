@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#121a17">
 <link rel="icon" href="/img/badge32.png"><link rel="apple-touch-icon" href="/img/badge180.png">
-<title>CW Decoder</title>
+<title>CW Console</title>
 <style>
   @font-face { font-family: "Plex Cond"; src: url(/fonts/ibm-plex-sans-condensed-latin-400-normal.woff2) format("woff2"); font-weight: 400; font-display: swap; }
   @font-face { font-family: "Plex Cond"; src: url(/fonts/ibm-plex-sans-condensed-latin-500-normal.woff2) format("woff2"); font-weight: 500; font-display: swap; }
@@ -218,7 +218,7 @@
 <body>
 <header id="top">
   <img id="logo" src="/img/badge96.png" width="36" height="36" alt="" style="display:none">
-  <h1>CW Decoder</h1>
+  <h1>CW Console</h1>
   <div id="modeseg" style="display:none" role="group" aria-label="Mode"><button data-m="cw" aria-pressed="true">CW</button><button data-m="ft8" aria-pressed="false">FT8</button></div>
   <select id="mode" title="Mode" hidden><option value="cw">CW</option><option value="ft8">FT8</option></select>
   <span id="utc" title="UTC time (log times are UTC)"></span>
@@ -229,7 +229,7 @@
   <button id="rigbtn" title="FT-710: VFO A/B, split, clarifier, power, tuner and SWR sweep (over CAT)">Rig</button>
   <button id="setupbtn" title="Radio, audio and decoder settings">Setup</button>
   <button id="boxbtn" title="Box settings: Wi-Fi, passwords, update, power" style="display:none">&#9881; Box</button>
-  <button id="quit" title="Stop the CW Decoder app">Quit</button>
+  <button id="quit" title="Stop the CW Console app">Quit</button>
 </header>
 <div id="pwwarn" class="warn" style="display:none">This box still has the default password. Press <b>&#9881; Box</b> and change it before you take it out.</div>
 <div id="pwrwarn" class="warn" style="display:none"></div>
@@ -523,7 +523,7 @@ function waitForBox(card) {
     try {
       const ac = new AbortController(), to = setTimeout(() => ac.abort(), 3000);
       const r = await fetch("/api/ping", { cache: "no-store", signal: ac.signal }); clearTimeout(to);
-      up = r.ok && (await r.text()) === "cwdecoder";
+      up = r.ok && ["cwdecoder", "cwconsole"].includes(await r.text());
     } catch {}
     const secs = Math.round((Date.now() - t0) / 1000);
     if (!up) down = true;
@@ -563,7 +563,7 @@ function connect() {
     else if (ev.t === "state") applyState(ev.state);
   };
   es.onerror = async () => {
-    $("status").textContent = "Lost contact with the CW Decoder app - reconnecting...";
+    $("status").textContent = "Lost contact with the CW Console app - reconnecting...";
     // If the app was restarted it has a new security token: reload to pick it up.
     try {
       const r = await fetch("/api/hello", { headers: { "X-CW-Token": TOKEN } });
@@ -664,9 +664,9 @@ $("wav").onchange = async () => {
   $("wav").value = "";
 };
 $("quit").onclick = async () => {
-  if (!confirm("Quit CW Decoder? (Transmit is switched off.)")) return;
+  if (!confirm("Quit CW Console? (Transmit is switched off.)")) return;
   stopCapture(); await api("/api/quit", "").catch(() => {});
-  showGone("CW Decoder has quit", "You can close this tab. Open the app again to restart it.");
+  showGone("CW Console has quit", "You can close this tab. Open the app again to restart it.");
 };
 $("showsender").onchange = () => { $("sender").style.display = $("showsender").checked ? "" : "none"; };
 try { if (localStorage.getItem("cwSender") === "0") { $("showsender").checked = false; $("sender").style.display = "none"; } } catch {}

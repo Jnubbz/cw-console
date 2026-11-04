@@ -34,11 +34,11 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           go test -timeout 20m ./cw ./deepcw ./ops ./rig/... ./internal/... ./cmd/cwdecode-file ./cmd/cw-decoder
-          go build -ldflags "-H windowsgui" -o CW-Decoder.exe ./cmd/cw-decoder
+          go build -ldflags "-H windowsgui" -o CW-Console.exe ./cmd/cw-decoder
 
   package:
     name: Build Windows and Mac packages
-    runs-on: ubuntu-latest
+    runs-on: macos-latest # the Mac app's window is Swift
     needs: test
     steps:
       - uses: actions/checkout@v4

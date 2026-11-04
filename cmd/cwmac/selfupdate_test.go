@@ -51,8 +51,9 @@ func TestSwapApp(t *testing.T) {
 	stage, _ := os.MkdirTemp(filepath.Dir(app), ".cw-update-")
 	zp := filepath.Join(stage, "u.zip")
 	os.WriteFile(zp, macZip(t, true), 0o644)
-	if err := swapApp(app, zp, stage); err != nil {
-		t.Fatal(err)
+	to, err := swapApp(app, zp, stage)
+	if err != nil || to != app {
+		t.Fatal(to, err)
 	}
 	if b, _ := os.ReadFile(filepath.Join(app, "Contents", "MacOS", "cw-decoder")); string(b) != "NEW" {
 		t.Fatalf("app has %q", b)
@@ -68,11 +69,50 @@ func TestSwapAppKeepsTheOldOneIfTheUpdateIsBroken(t *testing.T) {
 	stage, _ := os.MkdirTemp(filepath.Dir(app), ".cw-update-")
 	zp := filepath.Join(stage, "u.zip")
 	os.WriteFile(zp, macZip(t, false), 0o644)
-	if err := swapApp(app, zp, stage); err == nil {
+	if _, err := swapApp(app, zp, stage); err == nil {
 		t.Fatal("a zip with no app was installed")
 	}
 	if b, _ := os.ReadFile(filepath.Join(app, "Contents", "MacOS", "cw-decoder")); string(b) != "OLD" {
 		t.Fatalf("app has %q", b)
+	}
+}
+
+// An update from a build still named "CW Decoder.app" (0.2.1) lands as "CW Console.app",
+// with the window shell as its program.
+func TestSwapAppTakesTheNewName(t *testing.T) {
+	app := fakeApp(t) // .../Applications/CW Decoder.app
+	var b bytes.Buffer
+	z := zip.NewWriter(&b)
+	for name, body := range map[string]string{
+		"CW-Console-Mac/CW Console.app/Contents/Info.plist":       "<dict><key>CFBundleExecutable</key><string>CW Console</string></dict>",
+		"CW-Console-Mac/CW Console.app/Contents/MacOS/CW Console": "SHELL",
+		"CW-Console-Mac/CW Console.app/Contents/MacOS/cw-decoder": "ENGINE",
+	} {
+		h := &zip.FileHeader{Name: name}
+		h.SetMode(0o755)
+		w, _ := z.CreateHeader(h)
+		w.Write([]byte(body))
+	}
+	z.Close()
+	stage, _ := os.MkdirTemp(filepath.Dir(app), ".cw-update-")
+	zp := filepath.Join(stage, "u.zip")
+	os.WriteFile(zp, b.Bytes(), 0o644)
+	to, err := swapApp(app, zp, stage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Base(to) != "CW Console.app" {
+		t.Fatalf("installed as %s", to)
+	}
+	if got, _ := os.ReadFile(filepath.Join(to, "Contents", "MacOS", "CW Console")); string(got) != "SHELL" {
+		t.Fatalf("shell %q", got)
+	}
+	if _, err := os.Stat(app); err == nil {
+		t.Fatal("the old CW Decoder.app (this same app, renamed) is still there")
+	}
+	os.RemoveAll(stage)
+	if ents, _ := os.ReadDir(filepath.Dir(app)); len(ents) != 1 {
+		t.Fatalf("left over: %v", ents)
 	}
 }
 
@@ -117,7 +157,7 @@ func TestDesktopUpdateEndToEnd(t *testing.T) {
 		},
 		stage: func() (string, error) { return os.MkdirTemp(filepath.Dir(app), ".cw-update-") },
 	}
-	u.apply = func(zp, stage string) error { defer os.RemoveAll(stage); return swapApp(app, zp, stage) }
+	u.apply = func(zp, stage string) error { defer os.RemoveAll(stage); _, err := swapApp(app, zp, stage); return err }
 
 	s := u.check(context.Background())
 	if !s.Available || s.Latest != "0.2.9" || s.Current != "0.2.3" || !s.CanInstall || s.Notes != "new stuff" {

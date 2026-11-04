@@ -37,19 +37,19 @@ func read(dir, name string) string {
 }
 
 func TestApplyUpdateReplacesTheFiles(t *testing.T) {
-	dir := installed(t, map[string]string{"CW-Decoder.exe": "old exe", "deepcw/model.onnx": "old model", "my-notes.txt": "keep"})
+	dir := installed(t, map[string]string{"CW-Console.exe": "old exe", "deepcw/model.onnx": "old model", "my-notes.txt": "keep"})
 	zp := winZip(t, map[string]string{
-		"CW-Decoder-Windows/CW-Decoder.exe":         "new exe",
-		"CW-Decoder-Windows/deepcw/model.onnx":      "new model",
-		"CW-Decoder-Windows/cwdecode-file.exe":      "new tool",
-		"CW-Decoder-Windows/deepcw/model.onnx.json": "{}",
+		"CW-Console-Windows/CW-Console.exe":         "new exe",
+		"CW-Console-Windows/deepcw/model.onnx":      "new model",
+		"CW-Console-Windows/cwdecode-file.exe":      "new tool",
+		"CW-Console-Windows/deepcw/model.onnx.json": "{}",
 	})
 	stage, _ := os.MkdirTemp(dir, ".cw-update-")
 	if err := applyUpdate(zp, stage, dir); err != nil {
 		t.Fatal(err)
 	}
-	for name, want := range map[string]string{"CW-Decoder.exe": "new exe", "deepcw/model.onnx": "new model",
-		"cwdecode-file.exe": "new tool", "my-notes.txt": "keep", "CW-Decoder.exe.old": "old exe"} {
+	for name, want := range map[string]string{"CW-Console.exe": "new exe", "deepcw/model.onnx": "new model",
+		"cwdecode-file.exe": "new tool", "my-notes.txt": "keep", "CW-Console.exe.old": "old exe"} {
 		if got := read(dir, name); got != want {
 			t.Errorf("%s: %q, want %q", name, got, want)
 		}
@@ -57,29 +57,29 @@ func TestApplyUpdateReplacesTheFiles(t *testing.T) {
 }
 
 func TestApplyUpdateRefusesAZipWithoutTheApp(t *testing.T) {
-	dir := installed(t, map[string]string{"CW-Decoder.exe": "old exe"})
-	zp := winZip(t, map[string]string{"CW-Decoder-Windows/README.txt": "hi"})
+	dir := installed(t, map[string]string{"CW-Console.exe": "old exe"})
+	zp := winZip(t, map[string]string{"CW-Console-Windows/README.txt": "hi"})
 	stage, _ := os.MkdirTemp(dir, ".cw-update-")
 	if err := applyUpdate(zp, stage, dir); err == nil {
-		t.Fatal("installed a zip without CW-Decoder.exe")
+		t.Fatal("installed a zip without CW-Console.exe")
 	}
-	if read(dir, "CW-Decoder.exe") != "old exe" {
+	if read(dir, "CW-Console.exe") != "old exe" {
 		t.Fatal("old app touched")
 	}
 }
 
 func TestApplyUpdateUndoesOnFailure(t *testing.T) {
-	dir := installed(t, map[string]string{"CW-Decoder.exe": "old exe", "deepcw/model.onnx": "old model",
+	dir := installed(t, map[string]string{"CW-Console.exe": "old exe", "deepcw/model.onnx": "old model",
 		"deepcw/model.onnx.old/blocker": "x"}) // a non-empty folder where model.onnx would be set aside
 	zp := winZip(t, map[string]string{
-		"CW-Decoder-Windows/CW-Decoder.exe":    "new exe",
-		"CW-Decoder-Windows/deepcw/model.onnx": "new model",
+		"CW-Console-Windows/CW-Console.exe":    "new exe",
+		"CW-Console-Windows/deepcw/model.onnx": "new model",
 	})
 	stage, _ := os.MkdirTemp(dir, ".cw-update-")
 	if err := applyUpdate(zp, stage, dir); err == nil {
 		t.Fatal("expected a failure")
 	}
-	if read(dir, "CW-Decoder.exe") != "old exe" || read(dir, "deepcw/model.onnx") != "old model" {
-		t.Fatalf("not undone: exe %q, model %q", read(dir, "CW-Decoder.exe"), read(dir, "deepcw/model.onnx"))
+	if read(dir, "CW-Console.exe") != "old exe" || read(dir, "deepcw/model.onnx") != "old model" {
+		t.Fatalf("not undone: exe %q, model %q", read(dir, "CW-Console.exe"), read(dir, "deepcw/model.onnx"))
 	}
 }

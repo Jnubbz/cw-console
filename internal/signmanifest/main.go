@@ -4,7 +4,7 @@
 // selfupdate.PublicKey.
 //
 //	signmanifest -version 0.2.17 -base https://github.com/OWNER/REPO/releases/download/v0.2.17 \
-//	    -out dist darwin-arm64=dist/CW-Decoder-Mac.zip windows-amd64=dist/CW-Decoder-Windows.zip
+//	    -out dist darwin-arm64=dist/CW-Console-Mac.zip windows-amd64=dist/CW-Console-Windows.zip
 package main
 
 import (
