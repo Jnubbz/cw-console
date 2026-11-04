@@ -123,6 +123,11 @@ func listPorts() []portInfo {
 		}
 	}
 	sort.Slice(out, func(a, b int) bool { return out[a].Path < out[b].Path })
+	for i := range out {
+		if r := portRole(out[i].Path, out); r != "" {
+			out[i].Label += "  (" + r + ")"
+		}
+	}
 	return append(out, gpioPorts()...)
 }
 

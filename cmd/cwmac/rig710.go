@@ -53,10 +53,13 @@ func (e *Engine) ft710Spec() (catSpec, error) {
 	// Never CAT on the key port: opening a serial port raises its DTR (and RTS) for a
 	// moment, and that's the CW key line, so the radio would key every time. (A CAT port
 	// set to the key port is ignored: Auto finds the right one.)
-	if catPort != "" && !samePort(catPort, keyPort) {
+	if catPort != "" && !samePort(catPort, keyPort) && !isStandardPort(catPort) {
 		return catSpec{Port: catPort, Baud: catBaud}, nil
 	}
 	if p := catPortFor(keyPort); p != "" && !samePort(p, keyPort) {
+		return catSpec{Port: p, Baud: catBaud}, nil
+	}
+	if p := pairedCATPort(keyPort, portList()); p != "" { // Mac: usbserial-...1 -> ...0
 		return catSpec{Port: p, Baud: catBaud}, nil
 	}
 	e.rp.mu.Lock()
@@ -80,11 +83,7 @@ func (e *Engine) ft710Spec() (catSpec, error) {
 
 // findFT710 asks each likely serial port (not the key port) for its ID.
 func findFT710(keyPort string) string {
-	for _, pi := range listPorts() {
-		p := pi.Path
-		if samePort(p, keyPort) || !likelyRigPort(p) {
-			continue
-		}
+	for _, p := range catCandidates(keyPort, portList()) {
 		c, err := openCAT(p, catBaud)
 		if err != nil {
 			continue
