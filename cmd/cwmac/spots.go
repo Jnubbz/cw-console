@@ -48,7 +48,7 @@ func (e *Engine) spotsUpLocked() {
 	f.cancel, f.on, f.call = cancel, true, call
 	f.store.MyCall = call
 	go f.store.RunPOTA(ctx, envOr("CWCONSOLE_POTA_URL", spots.POTAURL), nil) // (the overrides are for testing)
-	if call != "" { // the RBN wants a call to log in
+	if call != "" {                                                          // the RBN wants a call to log in
 		go f.store.RunRBN(ctx, envOr("CWCONSOLE_RBN_ADDR", spots.RBNAddr), call)
 	}
 }

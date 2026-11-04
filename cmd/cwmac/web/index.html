@@ -205,6 +205,7 @@
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   /* band strip: RBN and POTA spots on the current band */
   #stripbox { display: flex; flex-direction: column; gap: 4px; }
+  #stripbox[hidden] { display: none; }
   #striphead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
   #striphead select { min-height: 28px; padding: 2px 6px; }
   #heardme { cursor: pointer; color: var(--green); }

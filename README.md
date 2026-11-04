@@ -79,6 +79,19 @@ Windows for each pull request and builds the zips; pushing a `v*` tag publishes 
 | `testdata/samples/` | Sample recordings with known text (decoder regression tests) |
 | `packaging/` | Mac app bundle files and the Windows readme |
 
+## Home station first
+
+CW Console is a full CW console for the home station. POTA activating is an option:
+**Setup > Operating > POTA activation mode** shows the park and activation-count bar
+(always on for the POTA Pi box).
+
+**Band strip** (Setup > Operating > Spots): under the spectrum, the CW part of the band the
+radio is on (or one you pick), with Reverse Beacon Network skimmer spots (green, brighter =
+stronger) and POTA activators (brass, "P"). Hover for the details; click to tune the radio
+there in CW and put the call in the Call box. On the right, **Heard by N skimmers**: the RBN
+copying your own call (click for the list). RBN logs in with MYCALL from the macros
+(`telnet.reversebeacon.net:7000`); POTA spots come from `api.pota.app` once a minute.
+
 ## The Rig sheet (FT-710)
 
 **Rig** in the top bar talks to the FT-710 over CAT on its *Enhanced* COM port (CAT-1, the

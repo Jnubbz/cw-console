@@ -58,13 +58,13 @@ type Settings struct {
 	RigCtl       bool           `json:"rigCtl"`       // switch the rig's mode/frequency over CAT
 	RigPrevMode  string         `json:"rigPrevMode"`  // CAT mode code to go back to after FT8
 	RigPrevHz    int            `json:"rigPrevHz"`
-	CATType      string         `json:"catType"` // the radio's CAT commands: "" auto | "yaesu" | "kenwood"
-	CATPort      string         `json:"catPort"` // Yaesu CAT port (Enhanced COM); "" = find it
+	CATType      string         `json:"catType"`  // the radio's CAT commands: "" auto | "yaesu" | "kenwood"
+	CATPort      string         `json:"catPort"`  // Yaesu CAT port (Enhanced COM); "" = find it
 	POTAMode     bool           `json:"potaMode"` // show the park / activation bar (off: a home station)
 	SpotsOn      bool           `json:"spotsOn"`  // RBN and POTA spots on the band strip
-	Park         string         `json:"park"`    // POTA reference being activated ("" = PARK from the macros, if set)
-	Radio        string         `json:"radio"`   // current radio profile
-	Radios       []RadioProfile `json:"radios"`  // the radio-specific settings, per radio
+	Park         string         `json:"park"`     // POTA reference being activated ("" = PARK from the macros, if set)
+	Radio        string         `json:"radio"`    // current radio profile
+	Radios       []RadioProfile `json:"radios"`   // the radio-specific settings, per radio
 }
 
 func defaultSettings() Settings {
