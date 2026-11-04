@@ -33,6 +33,9 @@ func TestSetCommands(t *testing.T) {
 		{must(LoadKeyerMemory(1, "cq pota de kn0ble k")), "KM1CQ POTA DE KN0BLE K;"},
 		{must(PlayKeyerMemory(1)), "KY6;"},
 		{must(PlayKeyerMemory(5)), "KYA;"},
+		{must(SelectBand("20m")), "BS05;"},
+		{must(SelectBand("160m")), "BS00;"},
+		{must(SelectBand("6m")), "BS10;"},
 	}
 	for _, c := range cases {
 		if c.got != c.want {
@@ -62,6 +65,8 @@ func TestRejectsOutOfRange(t *testing.T) {
 	_, e = LoadKeyerMemory(1, "NO SEMICOLONS; HERE")
 	bad = append(bad, e)
 	_, e = PlayKeyerMemory(0)
+	bad = append(bad, e)
+	_, e = SelectBand("2m")
 	bad = append(bad, e)
 	for i, err := range bad {
 		if err == nil {
