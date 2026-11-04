@@ -273,13 +273,20 @@ func (e *Engine) doRig(a rigAction) rigReply {
 	switch a.Action {
 	case "band":
 		time.Sleep(250 * time.Millisecond) // a band change takes the radio a moment
-		// The band key brings back that band's last mode (maybe SSB): this is a CW
-		// console, so CW, on the usual side (CW-L below 10 MHz, CW-U above).
-		if ans, err := cat("FA;"); err == nil && len(ans) == 1 {
-			if hz, err := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(ans[0], "FA"), ";")); err == nil && hz > 0 {
-				if md, err := ft710.SetMode(cwModeFor(hz)); err == nil {
-					cat(md)
-				}
+		// Land in the middle of the band's CW segment (60 m is channelized: keep what the
+		// radio recalled), in CW on the usual side (CW-L below 10 MHz, CW-U above): the
+		// band key alone brings back the band stack, maybe SSB up the band.
+		hz := cwMidHz(a.Value)
+		if hz > 0 {
+			if fa, err := ft710.SetFreqA(hz); err == nil {
+				cat(fa)
+			}
+		} else if ans, err := cat("FA;"); err == nil && len(ans) == 1 {
+			hz, _ = strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(ans[0], "FA"), ";"))
+		}
+		if hz > 0 {
+			if md, err := ft710.SetMode(cwModeFor(hz)); err == nil {
+				cat(md)
 			}
 		}
 	case "freqA", "swap", "btoa":

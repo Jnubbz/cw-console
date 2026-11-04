@@ -22,6 +22,17 @@ var stripBands = []struct {
 	{"10m", 28000, 28080}, {"6m", 50000, 50100},
 }
 
+// cwMidHz: the middle of a band's CW segment, to the kHz, or 0 for a band without one
+// here (60 m).
+func cwMidHz(band string) int {
+	for _, b := range stripBands {
+		if b.Band == band {
+			return int((b.From+b.To)/2) * 1000
+		}
+	}
+	return 0
+}
+
 type spotFeeds struct {
 	store  *spots.Store
 	cancel context.CancelFunc

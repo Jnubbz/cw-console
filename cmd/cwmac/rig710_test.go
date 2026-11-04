@@ -194,8 +194,11 @@ func TestBandKeys(t *testing.T) {
 	if r := e.doRig(rigAction{"band", "20m"}); r.Error != "" || f.get("MD0") != "3" {
 		t.Fatalf("20 m should land in CW-U: %+v, mode %s", r, f.get("MD0"))
 	}
-	if r := e.doRig(rigAction{"band", "40m"}); r.Error != "" || f.get("MD0") != "7" {
-		t.Fatalf("40 m should land in CW-L: %+v, mode %s", r, f.get("MD0"))
+	if f.get("FA") != "014035000" {
+		t.Fatalf("20 m should land mid CW segment, 14.035: FA %s", f.get("FA"))
+	}
+	if r := e.doRig(rigAction{"band", "40m"}); r.Error != "" || f.get("MD0") != "7" || f.get("FA") != "007035000" {
+		t.Fatalf("40 m should land on 7.035 in CW-L: %+v, mode %s FA %s", r, f.get("MD0"), f.get("FA"))
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
