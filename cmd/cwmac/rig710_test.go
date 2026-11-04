@@ -109,6 +109,9 @@ func (f *fake710) handle(cmd string) string {
 		f.v["CF001"] = "+0000"
 		return ""
 	}
+	if strings.HasPrefix(body, "BS") && len(body) == 4 {
+		return ""
+	}
 	return "?;"
 }
 
@@ -156,6 +159,45 @@ func TestRigPanelReadsAndSetsTheFT710(t *testing.T) {
 	}
 	if r := e.doRig(rigAction{"warp", ""}); r.Error == "" {
 		t.Fatal("unknown action should be refused")
+	}
+}
+
+// The CAT port set to the key port must never be opened for CAT: opening a port raises its
+// DTR, which is the CW key line (the FT-710 keyed every time the app asked it something).
+func TestCATNeverUsesTheKeyPort(t *testing.T) {
+	dataDir = t.TempDir()
+	defer func() { dataDir = "" }()
+	port, f := startFake710(t)
+	e := newEngine(newHub())
+	e.applySettings(json.RawMessage(fmt.Sprintf(`{"txPort":%q,"catPort":%q}`, port, port)))
+	r := e.rigState()
+	if r.Error == "" || r.Port == port {
+		t.Fatalf("CAT went to the key port: %+v", r)
+	}
+	if r := e.doRig(rigAction{"band", "40m"}); r.Error == "" {
+		t.Fatalf("band change went somewhere: %+v", r)
+	}
+	f.mu.Lock()
+	n := len(f.cmds)
+	f.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("the key port got CAT commands: %v", f.cmds)
+	}
+}
+
+func TestBandKeys(t *testing.T) {
+	e, f := testEngine710(t)
+	if r := e.doRig(rigAction{"band", "40m"}); r.Error != "" {
+		t.Fatal(r.Error)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	found := false
+	for _, c := range f.cmds {
+		found = found || c == "BS03;"
+	}
+	if !found {
+		t.Fatalf("no BS03; in %v", f.cmds)
 	}
 }
 
