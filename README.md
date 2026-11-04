@@ -4,6 +4,10 @@ An open-source CW (Morse) operating console, growing into a full-featured consol
 **Yaesu FT-710**. It decodes, sends and logs CW, runs on Windows, Mac and a headless
 Raspberry Pi 5 box, and is free software under the AGPL-3.0.
 
+**Download:** the latest Windows and Mac builds are on the
+[Releases page](https://github.com/Jnubbz/cw-console/releases/latest). Once installed, the app
+updates itself.
+
 ## What's here today
 
 | | Windows | Mac (Apple Silicon) |
