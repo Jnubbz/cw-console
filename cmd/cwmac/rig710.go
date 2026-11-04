@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -272,6 +273,15 @@ func (e *Engine) doRig(a rigAction) rigReply {
 	switch a.Action {
 	case "band":
 		time.Sleep(250 * time.Millisecond) // a band change takes the radio a moment
+		// The band key brings back that band's last mode (maybe SSB): this is a CW
+		// console, so CW, on the usual side (CW-L below 10 MHz, CW-U above).
+		if ans, err := cat("FA;"); err == nil && len(ans) == 1 {
+			if hz, err := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(ans[0], "FA"), ";")); err == nil && hz > 0 {
+				if md, err := ft710.SetMode(cwModeFor(hz)); err == nil {
+					cat(md)
+				}
+			}
+		}
 	case "freqA", "swap", "btoa":
 		time.Sleep(50 * time.Millisecond) // the radio settles before the read-back
 	}
