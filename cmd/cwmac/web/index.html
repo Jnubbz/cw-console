@@ -67,6 +67,8 @@
   .warn { border-radius: 8px; padding: 8px 12px; }
   #pwwarn { background: #4a3410; border: 1px solid #7a5a1c; color: #f6e2b6; }
   #pwrwarn { background: #4c1416; border: 1px solid #7c2427; }
+  #update { background: #183a28; border: 1px solid #2f7a52; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #update[hidden] { display: none; }
   #status:empty { display: none; }
   #status { color: var(--dim); min-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
   /* FT8: lines whose text comes and goes keep their height, so the list you tap doesn't jump */
@@ -231,6 +233,8 @@
 </header>
 <div id="pwwarn" class="warn" style="display:none">This box still has the default password. Press <b>&#9881; Box</b> and change it before you take it out.</div>
 <div id="pwrwarn" class="warn" style="display:none"></div>
+<div id="update" class="warn" hidden><span id="updText">A new version of CW Console is ready.</span><span class="spacer"></span>
+  <button id="updLater">Later</button><button id="updGo" class="primary">Install and restart</button></div>
 <div id="actbar">
   <label for="park" title="The POTA park you're activating: it goes in every contact you log, and the box writes the file POTA's uploader wants">Park</label>
   <input id="park" type="text" maxlength="10" placeholder="US-1234" autocomplete="off" spellcheck="false">
@@ -371,6 +375,10 @@
     <div class="row"><label title="Send at the other station's speed, within these limits"><input id="match" type="checkbox"> Match their speed</label>
       <input id="mmin" type="number" min="5" max="50" step="1" title="slowest"><span class="dim">to</span><input id="mmax" type="number" min="5" max="50" step="1" title="fastest"><span class="dim">WPM</span></div>
     <div class="row"><label><input id="showsender" type="checkbox" checked> Show the sender</label></div>
+  </section>
+  <section id="setupdate">
+    <h3>Updates</h3>
+    <div class="row"><span id="updVer" class="dim">Version</span><span class="spacer"></span><button id="updCheck">Check for updates</button></div>
   </section>
 </div></div>
 
@@ -582,6 +590,7 @@ function applyState(st) {
   $("wpmv").textContent = s.wpm + (st.sendWPM && st.sendWPM !== s.wpm ? ` (sending ${st.sendWPM})` : "");
   if (!recent("txmode")) $("txmode").value = s.txMode;
   if (!st.appliance) for (const o of $("line").querySelectorAll('option[value="audio"],option[value="cat"]')) o.remove(); // CAT and the audio tone are the box's
+  $("setupdate").hidden = !!st.appliance; // the box updates under Box
   if (!recent("line")) $("line").value = s.txLine || "dtr";
   $("audionote").hidden = $("line").value !== "audio";
   if ((s.txPort || "") !== lastPort && !recent("port")) { // the saved key port (it changes with the radio)
@@ -1632,6 +1641,58 @@ function sweepDraw(s) {
     g.fillText(lbl, lx, Math.max(T + 10, y(s.best.swr) - 8));
   }
 }
+
+// ---- updates (desktop app; the box has its own under Box) ----
+let updLater = false, updPoll = null;
+function updRender(u, manual) {
+  if (!u || !u.current) return;
+  const avail = u.available && u.latest;
+  let v = `Version ${u.current}`;
+  if (u.error && manual) v += ` - ${u.error}`;
+  else if (avail) v += ` - ${u.latest} is ready`;
+  else if (manual) v += " - you're up to date";
+  $("updVer").textContent = v;
+  const busy = u.state && u.state !== "checking";
+  if (busy) {
+    $("update").hidden = false; $("updGo").disabled = $("updLater").disabled = true;
+    const mb = (n) => (n / 1048576).toFixed(1);
+    $("updText").textContent = u.state === "downloading"
+      ? `Downloading the update... ${mb(u.done || 0)} MB` + (u.total ? ` of ${mb(u.total)} MB` : "")
+      : u.state === "installing" ? "Checking and installing the update..." : `Restarting into ${u.latest}...`;
+    return;
+  }
+  $("updGo").disabled = $("updLater").disabled = false;
+  if (u.error && $("update").hidden === false && !avail) { $("updText").textContent = u.error; return; }
+  if (avail && !updLater) {
+    $("update").hidden = false;
+    $("updText").textContent = u.canInstall
+      ? `CW Console ${u.latest} is ready (you have ${u.current}). Installing stops sending for a moment.`
+      : `CW Console ${u.latest} is out (you have ${u.current}): download it from GitHub.`;
+    $("updGo").hidden = !u.canInstall;
+    if (u.error) $("updText").textContent += " " + u.error;
+  } else if (!avail) $("update").hidden = true;
+}
+async function checkForUpdate(manual) {
+  if (S && S.appliance) return;
+  if (manual) $("updVer").textContent = "Checking...";
+  updRender(await api(manual ? "/api/update/check" : "/api/update", manual ? "" : undefined), manual);
+}
+$("updCheck").onclick = () => { updLater = false; checkForUpdate(true); };
+$("updLater").onclick = () => { updLater = true; $("update").hidden = true; };
+$("updGo").onclick = async () => {
+  $("updGo").disabled = $("updLater").disabled = true;
+  $("updText").textContent = "Starting the update...";
+  const r = await api("/api/update/install", "");
+  if (r.error) { $("updText").textContent = r.error; $("updGo").disabled = $("updLater").disabled = false; return; }
+  clearInterval(updPoll);
+  updPoll = setInterval(async () => {
+    let u; try { u = await api("/api/update"); } catch { return; } // restarting: the page reloads when it's back
+    updRender(u);
+    if (!u.state && u.error) clearInterval(updPoll);
+  }, 500);
+};
+setTimeout(() => checkForUpdate(false), 6000);            // the app checks 4 s after it starts
+setInterval(() => checkForUpdate(false), 10 * 60 * 1000);  // and every 6 hours; show what it found
 </script>
 </body>
 </html>

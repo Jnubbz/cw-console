@@ -448,6 +448,19 @@ func (s *server) routes() *http.ServeMux {
 		openBrowser(logDir()) // "open" shows the folder in Finder
 		w.WriteHeader(204)
 	}))
+	if !appliance { // the box has its own updates (Box > Update)
+		m.HandleFunc("/api/update", s.guard(func(w http.ResponseWriter, r *http.Request) { writeJSON(w, updater.status()) }))
+		m.HandleFunc("/api/update/check", s.guard(func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, updater.check(r.Context()))
+		}))
+		m.HandleFunc("/api/update/install", s.guard(func(w http.ResponseWriter, r *http.Request) {
+			if err := updater.startInstall(); err != nil {
+				writeJSON(w, map[string]string{"error": err.Error()})
+				return
+			}
+			writeJSON(w, updater.status())
+		}))
+	}
 	m.HandleFunc("/api/rig", s.guard(func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.e.rigState()) }))
 	m.HandleFunc("/api/rig/do", s.guard(func(w http.ResponseWriter, r *http.Request) {
 		var q rigAction
@@ -561,6 +574,7 @@ func main() {
 	s := &server{h: h, token: hex.EncodeToString(tb), port: ln.Addr().(*net.TCPAddr).Port, quit: make(chan struct{})}
 	s.e = newEngine(h)
 	go s.e.run()
+	updater.start(s.e, s.shutdown)
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
