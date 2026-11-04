@@ -461,6 +461,7 @@ func (s *server) routes() *http.ServeMux {
 			writeJSON(w, updater.status())
 		}))
 	}
+	s.spotRoutes(m)
 	m.HandleFunc("/api/rig", s.guard(func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.e.rigState()) }))
 	m.HandleFunc("/api/rig/do", s.guard(func(w http.ResponseWriter, r *http.Request) {
 		var q rigAction

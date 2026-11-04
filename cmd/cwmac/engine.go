@@ -60,6 +60,8 @@ type Settings struct {
 	RigPrevHz    int            `json:"rigPrevHz"`
 	CATType      string         `json:"catType"` // the radio's CAT commands: "" auto | "yaesu" | "kenwood"
 	CATPort      string         `json:"catPort"` // Yaesu CAT port (Enhanced COM); "" = find it
+	POTAMode     bool           `json:"potaMode"` // show the park / activation bar (off: a home station)
+	SpotsOn      bool           `json:"spotsOn"`  // RBN and POTA spots on the band strip
 	Park         string         `json:"park"`    // POTA reference being activated ("" = PARK from the macros, if set)
 	Radio        string         `json:"radio"`   // current radio profile
 	Radios       []RadioProfile `json:"radios"`  // the radio-specific settings, per radio
@@ -69,7 +71,7 @@ func defaultSettings() Settings {
 	return Settings{Pitch: 600, Sensitivity: 0.5, Improved: true, Decoder: "classic",
 		AISpeed: int(deepcw.SpeedAuto), AIFocus: true, WPM: 20, TxMode: "type", TxLine: "dtr", FT8PTTLine: "dtr",
 		Ops: ops.DefaultConfig(), Mode: "cw", FT8Depth: 3, FT8TxFreq: 1500, FT8Level: 50,
-		FT8CQPota: true, FT8AutoCQ: true, RigCtl: true}
+		FT8CQPota: true, FT8AutoCQ: true, RigCtl: true, SpotsOn: true}
 }
 
 type Engine struct {
@@ -126,6 +128,8 @@ type Engine struct {
 	rig            rigCtl
 
 	rp rigPanel // FT-710 rig panel and SWR sweep (Mac and Pi box)
+
+	feeds spotFeeds // RBN and POTA spots for the band strip
 }
 
 func newEngine(h *hub) *Engine {

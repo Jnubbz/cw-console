@@ -203,6 +203,16 @@
     .card { width: 100vw; max-height: 100vh; height: 100%; border-radius: 0; border: 0; }
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* band strip: RBN and POTA spots on the current band */
+  #stripbox { display: flex; flex-direction: column; gap: 4px; }
+  #striphead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+  #striphead select { min-height: 28px; padding: 2px 6px; }
+  #heardme { cursor: pointer; color: var(--green); }
+  #heardme.none { color: var(--faint); cursor: default; }
+  #stripwrap { position: relative; }
+  #bstrip { width: 100%; height: 64px; background: var(--well); border-radius: 7px; display: block; cursor: pointer; }
+  #striptip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--edge2); border-radius: 6px;
+    padding: 4px 8px; font-size: 12px; white-space: nowrap; display: none; z-index: 3; }
   /* FT-710 rig sheet */
   #rigModal .vfo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   #rigModal .vfo .tag { min-width: 26px; color: var(--dim); font-weight: 600; }
@@ -256,6 +266,16 @@
   <button id="autotune">Auto tune</button>
 </div>
 <canvas id="spec" class="cwonly"></canvas>
+<div id="stripbox" class="cwonly" hidden>
+  <div id="striphead">
+    <span class="grp"><label for="stripband" title="The band the strip shows: the rig's band (over CAT), or pick one">Spots</label>
+      <select id="stripband"><option value="">Rig's band</option></select></span>
+    <span id="stripinfo" class="dim"></span>
+    <span class="spacer"></span>
+    <span id="heardme" class="none" title="Reverse Beacon Network skimmers that copied your call in the last 15 minutes (click for the list)"></span>
+  </div>
+  <div id="stripwrap"><canvas id="bstrip"></canvas><div id="striptip"></div></div>
+</div>
 <div id="status"></div>
 
 <div id="ft8panel">
@@ -375,6 +395,11 @@
     <div class="row"><label title="Send at the other station's speed, within these limits"><input id="match" type="checkbox"> Match their speed</label>
       <input id="mmin" type="number" min="5" max="50" step="1" title="slowest"><span class="dim">to</span><input id="mmax" type="number" min="5" max="50" step="1" title="fastest"><span class="dim">WPM</span></div>
     <div class="row"><label><input id="showsender" type="checkbox" checked> Show the sender</label></div>
+  </section>
+  <section>
+    <h3>Operating</h3>
+    <div class="row"><label title="Shows the park and activation count bar, and writes the POTA uploader's log file. Off: a home station."><input id="potamode" type="checkbox"> POTA activation mode (park, activation count)</label></div>
+    <div class="row"><label title="Reverse Beacon Network skimmer spots and POTA activators on the current band, under the spectrum. RBN logs in with MYCALL from the macros."><input id="spotson" type="checkbox"> Spots: RBN and POTA band strip</label></div>
   </section>
   <section id="setupdate">
     <h3>Updates</h3>
@@ -1000,6 +1025,7 @@ const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov
 const dayText = (d) => d && d.length === 8 ? `${MONTHS[+d.slice(4, 6) - 1]} ${+d.slice(6)}` : "";
 let actSeq = -1, actPrev = null;
 function applyAct(st) {
+  $("actbar").style.display = st.appliance || st.settings.potaMode ? "" : "none"; // a home station doesn't need it
   const a = st.act; if (!a) return;
   const bar = $("actbar"), need = a.need || 10, done = a.valid >= need;
   if (!recent("park") && document.activeElement !== $("park")) $("park").value = a.park || "";
@@ -1293,12 +1319,17 @@ $("catsend").onclick = async () => {
   $("catout").textContent = r.error ? r.error : r.answer;
 };
 $("catcmd").onkeydown = (ev) => { if (ev.key === "Enter") $("catsend").onclick(); };
+$("potamode").onchange = () => { touched.potamode = Date.now(); setting({ potaMode: $("potamode").checked }); };
+$("spotson").onchange = () => { touched.spotson = Date.now(); setting({ spotsOn: $("spotson").checked }); $("stripbox").hidden = !$("spotson").checked; stripTick(); };
 $("catport").onchange = () => { touched.catport = Date.now(); setting({ catPort: $("catport").value }); };
 $("cattype").onchange = () => { touched.cattype = Date.now(); setting({ catType: $("cattype").value }); };
 // the Setup sheet's FT8 and rig fields: kept current in either mode
 function applySetup(st) {
   const s = st.settings;
   if (!recent("cattype")) $("cattype").value = s.catType || "";
+  if (!recent("potamode")) $("potamode").checked = !!s.potaMode;
+  if (!recent("spotson")) $("spotson").checked = !!s.spotsOn;
+  $("stripbox").hidden = !s.spotsOn;
   wantCatPort = s.catPort || "";
   if (!recent("catport") && $("catport").value !== wantCatPort) syncCatSel(wantCatPort);
   if (!recent("ft8depth")) $("ft8depth").value = String(s.ft8Depth || 3);
@@ -1693,6 +1724,109 @@ $("updGo").onclick = async () => {
 };
 setTimeout(() => checkForUpdate(false), 6000);            // the app checks 4 s after it starts
 setInterval(() => checkForUpdate(false), 10 * 60 * 1000);  // and every 6 hours; show what it found
+
+// ---- band strip: RBN skimmers and POTA activators on the band, click to work them ----
+const STRIP = { band: "", spots: [], from: 0, to: 0, dial: 0, mode: "", hits: [], data: null };
+async function stripTick() {
+  if ($("stripbox").hidden || !S || S.settings.mode !== "cw") return;
+  let band = $("stripband").value;
+  if (!band) { // the rig's band, over CAT
+    try {
+      const r = await api("/api/rig");
+      if (r.state) { STRIP.dial = r.state.freqA; STRIP.mode = r.state.mode; band = rigBandOf(r.state.freqA); }
+      else STRIP.dial = 0;
+    } catch { STRIP.dial = 0; }
+    if (!band) band = STRIP.band || "20m";
+  }
+  const d = await api("/api/spots?band=" + encodeURIComponent(band));
+  if (!d || !d.bands) return;
+  if ($("stripband").options.length === 1) for (const b of d.bands) { const o = document.createElement("option"); o.value = o.textContent = b; $("stripband").appendChild(o); }
+  STRIP.data = d; STRIP.band = d.band; STRIP.from = d.fromKHz; STRIP.to = d.toKHz; STRIP.spots = d.spots || [];
+  const st = d.status || {}, n = STRIP.spots.length, parks = STRIP.spots.filter((x) => x.source === "pota").length;
+  const feeds = [st.rbn ? "RBN" : (d.myCall ? "RBN connecting" : "RBN off: set MYCALL in the macros"), st.pota && st.pota > "2000" ? "POTA" : "POTA connecting"].join(" · ");
+  $("stripinfo").textContent = `${d.band}: ${n} station${n === 1 ? "" : "s"}${parks ? `, ${parks} POTA` : ""}  ·  ${feeds}`;
+  $("stripinfo").title = st.rbnError || "";
+  const h = d.heard || [];
+  $("heardme").className = h.length ? "" : "none";
+  $("heardme").textContent = h.length ? `Heard by ${h.length} skimmer${h.length > 1 ? "s" : ""}, best ${h[0].snr} dB (${h[0].skimmer})` : (d.myCall ? "Not heard by the RBN yet" : "");
+  stripDraw();
+}
+function stripDraw() {
+  const c = $("bstrip"), dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (!w) return;
+  c.width = w * dpr; c.height = h * dpr;
+  const g = c.getContext("2d"); g.scale(dpr, dpr); g.clearRect(0, 0, w, h);
+  const css = getComputedStyle(document.documentElement), col = (v) => css.getPropertyValue(v).trim();
+  if (!STRIP.to) return;
+  const L = 6, R = 6, x = (khz) => L + (w - L - R) * (khz - STRIP.from) / (STRIP.to - STRIP.from);
+  g.font = "10px " + col("--mono"); g.fillStyle = col("--faint"); g.strokeStyle = col("--edge");
+  for (let k = Math.ceil(STRIP.from / 10) * 10; k <= STRIP.to; k += 10) { // a tick every 10 kHz
+    g.beginPath(); g.moveTo(x(k), h - 12); g.lineTo(x(k), h - 8); g.stroke();
+    const t = (k / 1000).toFixed(2); g.fillText(t, Math.min(Math.max(x(k) - g.measureText(t).width / 2, 0), w - g.measureText(t).width), h - 1);
+  }
+  STRIP.hits = [];
+  const rows = [10, 26]; let last = [-1e9, -1e9];
+  const sorted = [...STRIP.spots].sort((a, b) => a.khz - b.khz);
+  for (const s of sorted) {
+    const px = x(s.khz), pota = s.source === "pota";
+    const strong = Math.max(0.25, Math.min(1, (s.snr || 10) / 30));
+    g.strokeStyle = pota ? col("--brass") : `rgba(116, 212, 150, ${strong})`;
+    g.lineWidth = pota ? 3 : 2;
+    g.beginPath(); g.moveTo(px, h - 14); g.lineTo(px, 4); g.stroke();
+    const label = (pota ? "P " : "") + s.call, lw = g.measureText(label).width;
+    let row = px - last[0] > lw + 6 ? 0 : px - last[1] > lw + 6 ? 1 : -1;
+    if (row >= 0) {
+      g.fillStyle = pota ? col("--brass") : col("--text");
+      g.fillText(label, Math.min(px + 3, w - lw), rows[row]);
+      last[row] = px;
+    }
+    STRIP.hits.push({ px, s });
+  }
+  if (STRIP.dial && STRIP.dial / 1000 >= STRIP.from && STRIP.dial / 1000 <= STRIP.to) { // where the radio is
+    const px = x(STRIP.dial / 1000); g.strokeStyle = col("--red"); g.lineWidth = 2;
+    g.beginPath(); g.moveTo(px, 0); g.lineTo(px, h - 10); g.stroke();
+  }
+}
+function stripNearest(ev) {
+  const r = $("bstrip").getBoundingClientRect(), mx = ev.clientX - r.left;
+  let best = null, bd = 9;
+  for (const hit of STRIP.hits) { const d = Math.abs(hit.px - mx); if (d < bd) { bd = d; best = hit; } }
+  return { best, mx };
+}
+const ago = (t) => { const m = Math.round((Date.now() - new Date(t)) / 60000); return m < 1 ? "now" : `${m} min ago`; };
+$("bstrip").onmousemove = (ev) => {
+  const { best, mx } = stripNearest(ev), tip = $("striptip");
+  if (!best) { tip.style.display = "none"; return; }
+  const s = best.s;
+  const bits = [`${s.call}  ${s.khz.toFixed(1)}`];
+  if (s.park) bits.push(`POTA ${s.park}${s.parkName ? " " + s.parkName : ""}${s.location ? " (" + s.location + ")" : ""}`);
+  if (s.skimmers) bits.push(`${s.snr} dB${s.wpm ? ", " + s.wpm + " WPM" : ""}, ${s.skimmers} skimmer${s.skimmers > 1 ? "s" : ""}`);
+  bits.push(ago(s.time) + " · click to work");
+  tip.textContent = bits.join("  ·  ");
+  tip.style.display = "block";
+  tip.style.left = Math.min(Math.max(mx - tip.offsetWidth / 2, 0), $("stripwrap").clientWidth - tip.offsetWidth) + "px";
+  tip.style.top = "-30px";
+};
+$("bstrip").onmouseleave = () => { $("striptip").style.display = "none"; };
+$("bstrip").onclick = async (ev) => {
+  const { best } = stripNearest(ev); if (!best) return;
+  const s = best.s, hz = Math.round(s.khz * 1000);
+  const r = await rigDo("freqA", hz);
+  if (r && r.error) { note("Couldn't tune the radio: " + r.error); }
+  else if (r && r.state && r.state.mode !== "3" && r.state.mode !== "7") await rigDo("mode", hz < 10e6 ? "7" : "3"); // CW
+  $("call").value = s.call; $("call").dispatchEvent(new Event("input")); // the Call box (and its DUPE check)
+  await api("/api/call", { call: s.call });
+  note(`Tuned to ${s.call} on ${(s.khz / 1000).toFixed(4)} MHz${s.park ? " (POTA " + s.park + ")" : ""}`);
+  stripTick();
+};
+$("heardme").onclick = () => {
+  const h = (STRIP.data && STRIP.data.heard) || []; if (!h.length) return;
+  info(`Heard by ${h.length} RBN skimmer${h.length > 1 ? "s" : ""} (last 15 minutes)`,
+    h.map((x) => `${x.skimmer.padEnd(10)} ${String(x.snr).padStart(3)} dB  ${(x.khz / 1000).toFixed(4)} MHz  ${x.wpm} WPM  ${ago(x.time)}`).join("\n"));
+};
+$("stripband").onchange = stripTick;
+window.addEventListener("resize", stripDraw);
+setInterval(stripTick, 5000); setTimeout(stripTick, 1500);
 </script>
 </body>
 </html>
