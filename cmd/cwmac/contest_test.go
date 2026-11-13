@@ -166,3 +166,36 @@ func TestContestWeekendStartsTheLog(t *testing.T) {
 		t.Fatalf("at the start the log starts at 0000Z: %v %q", time.Unix(e.st.ContestSince, 0).UTC(), e.note)
 	}
 }
+
+func TestAutoLogPerMode(t *testing.T) {
+	e := contestEngine(t)
+	e.applySettings(json.RawMessage(`{"contestAutoLog":false}`))
+	if !e.st.AutoLog || e.st.ContestAutoLog {
+		t.Fatalf("per mode: everyday %v, contest %v", e.st.AutoLog, e.st.ContestAutoLog)
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	n := len(e.logbook.Entries())
+	// Contest, Auto-log off: Enter's TU goes out but nothing is logged; the call stays.
+	e.contestEnterLocked("DL1ABC", 0)
+	e.contestEnterLocked("DL1ABC", 14)
+	if !strings.Contains(string(e.tx.queue), "TU KN0BLE") || len(e.logbook.Entries()) != n || e.call != "DL1ABC" || !strings.Contains(e.note, "Not logged") {
+		t.Fatalf("queue %q, entries %d, call %q, note %q", string(e.tx.queue), len(e.logbook.Entries()), e.call, e.note)
+	}
+	if err := e.logLocked(e.call); err != nil || len(e.logbook.Entries()) != n+1 {
+		t.Fatalf("Log QSO still logs: %v", err)
+	}
+	// Everyday CW, Auto-log on: TU (F4) logs.
+	e.st.Contest = ""
+	e.tx.queue = nil
+	e.setCallLocked("W1AW", false)
+	if err := e.tx.sendMacroLocked(3, "W1AW", true); err != nil || len(e.logbook.Entries()) != n+2 {
+		t.Fatalf("everyday TU should log: %v", err)
+	}
+	// and off there too, when switched off
+	e.st.AutoLog = false
+	e.setCallLocked("K1ABC", false)
+	if err := e.tx.sendMacroLocked(3, "K1ABC", true); err != nil || len(e.logbook.Entries()) != n+2 {
+		t.Fatalf("Auto-log off: TU shouldn't log: %v", err)
+	}
+}

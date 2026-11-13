@@ -77,13 +77,17 @@ type Settings struct {
 	ContestName     string `json:"contestName"`
 	ContestEmail    string `json:"contestEmail"`
 	ContestSince    int64  `json:"contestSince"` // unix: the contest log starts here
+	// {LOG} in a macro logs the contact: one switch for everyday CW, one for contests
+	AutoLog        bool `json:"autoLog"`
+	ContestAutoLog bool `json:"contestAutoLog"`
 }
 
 func defaultSettings() Settings {
 	return Settings{Pitch: 600, Sensitivity: 0.5, Improved: true, Decoder: "classic",
 		AISpeed: int(deepcw.SpeedAuto), AIFocus: true, WPM: 20, TxMode: "type", TxLine: "dtr", FT8PTTLine: "dtr",
 		Ops: ops.DefaultConfig(), Mode: "cw", FT8Depth: 3, FT8TxFreq: 1500, FT8Level: 50,
-		FT8CQPota: true, FT8AutoCQ: true, RigCtl: true, SpotsOn: true, ContestPower: "LOW", ContestAssisted: true}
+		FT8CQPota: true, FT8AutoCQ: true, RigCtl: true, SpotsOn: true, ContestPower: "LOW", ContestAssisted: true,
+		AutoLog: true, ContestAutoLog: true}
 }
 
 type Engine struct {
