@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -389,12 +390,18 @@ func (s *server) routes() *http.ServeMux {
 		writeJSON(w, map[string]string{})
 	}
 	m.HandleFunc("/api/call", s.guard(func(w http.ResponseWriter, r *http.Request) {
-		var q struct{ Call string }
+		var q struct {
+			Call string
+			Zone *int
+		}
 		if readJSON(r, &q) != nil {
 			http.Error(w, "bad json", 400)
 			return
 		}
 		s.e.mu.Lock()
+		if q.Zone != nil && *q.Zone >= 0 && *q.Zone <= 40 {
+			s.e.zoneRcvd = *q.Zone
+		}
 		s.e.setCallLocked(q.Call, false)
 		s.e.mu.Unlock()
 		w.WriteHeader(204)
@@ -498,16 +505,70 @@ func (s *server) routes() *http.ServeMux {
 	m.HandleFunc("/api/macros", s.guard(func(w http.ResponseWriter, r *http.Request) {
 		s.e.mu.Lock()
 		defer s.e.mu.Unlock()
+		contestSet := r.URL.Query().Get("set") == "contest"
 		if r.Method == http.MethodPost {
 			b, _ := io.ReadAll(io.LimitReader(r.Body, 200_000))
-			if err := s.e.tx.saveMacrosLocked(string(b)); err != nil {
+			save := s.e.tx.saveMacrosLocked
+			if contestSet {
+				save = s.e.tx.saveContestMacrosLocked
+			}
+			if err := save(string(b)); err != nil {
 				http.Error(w, err.Error(), 400)
 				return
 			}
 			w.WriteHeader(204)
 			return
 		}
+		if contestSet {
+			io.WriteString(w, s.e.tx.contestText)
+			return
+		}
 		io.WriteString(w, s.e.tx.macroText)
+	}))
+	// ---- contest ----
+	m.HandleFunc("/api/contest/enter", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		var q struct {
+			Call string
+			Zone int
+		}
+		if readJSON(r, &q) != nil || q.Zone < 0 || q.Zone > 40 {
+			http.Error(w, "bad json", 400)
+			return
+		}
+		s.e.mu.Lock()
+		seq := s.e.logbook.Seq
+		err := s.e.contestEnterLocked(q.Call, q.Zone)
+		logged := s.e.logbook.Seq != seq
+		s.e.mu.Unlock()
+		if err != nil {
+			reply(w, err)
+			return
+		}
+		writeJSON(w, map[string]bool{"logged": logged}) // the page clears its boxes right away
+	}))
+	m.HandleFunc("/api/contest/new", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		s.e.mu.Lock()
+		s.e.st.ContestSince = time.Now().Unix()
+		s.e.saveSettingsLocked()
+		s.e.setNoteLocked("New contest log started (earlier contacts stay in your regular log).")
+		s.e.mu.Unlock()
+		w.WriteHeader(204)
+	}))
+	m.HandleFunc("/api/contest/cabrillo", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		s.e.mu.Lock()
+		p, n, err := s.e.writeCabrilloLocked()
+		if err == nil {
+			s.e.setNoteLocked(fmt.Sprintf("Cabrillo log saved: %s (%d contacts). Upload it at cqww.com/logcheck.", filepath.Base(p), n))
+		}
+		s.e.mu.Unlock()
+		if err != nil {
+			reply(w, err)
+			return
+		}
+		if !appliance {
+			openBrowser(logDir()) // shows it in Finder
+		}
+		writeJSON(w, map[string]any{"file": filepath.Base(p), "n": n})
 	}))
 	if appliance {
 		s.applianceRoutes(m, reply)

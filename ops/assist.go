@@ -119,6 +119,9 @@ func (a *Assist) Armed() bool { return a.armed }
 // RSTRcvd is the last report the other station sent us this contact ("" if none).
 func (a *Assist) RSTRcvd() string { return FindRST(a.rxQSO) }
 
+// RxText: what's been decoded since the last logged contact (contests read the zone from it).
+func (a *Assist) RxText() string { return a.rxQSO }
+
 // TheirWPM is the other station's measured speed, or 0 if nobody was heard recently.
 func (a *Assist) TheirWPM(now time.Time) int {
 	if a.theirWPM < 5 || now.Sub(a.theirAt) > 90*time.Second {

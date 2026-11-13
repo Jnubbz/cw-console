@@ -75,6 +75,7 @@ Windows for each pull request and builds the zips; pushing a `v*` tag publishes 
 | `cw/` | Classic decoder, Morse tables, keyer, macros, WAV reading |
 | `deepcw/` | ONNX interpreter for the DeepCW model, with SIMD kernels |
 | `ops/` | Operating aids: callsign capture, Auto-CQ, ADIF log, POTA activation |
+| `contest/` | Country/zone lookup (AD1C's cty.dat), CQ WW scoring, Cabrillo |
 | `rig/ft710/` | FT-710 CAT: commands, answers, meter calibration, SWR sweep (no I/O, fully tested) |
 | `cmd/cw-decoder/` | Windows app (Win32 window, waveIn audio, serial keying) |
 | `cmd/cwmac/` | Mac app and the Pi box (web page in `web/`) |
@@ -116,6 +117,29 @@ turn on Transmit first. It sends a 250 ms carrier at 5 or 10 W per step, in CW (
 everywhere in every US HF band), and reads the SWR meter. Esc or Stop ends it; the radio's
 frequency, mode, power, split, clarifier and break-in are always put back. Only sweep where
 your license lets you transmit, and listen first.
+
+## Contesting (CQ WW DX CW)
+
+Setup > Operating > **Contest: CQ WW DX (CW)**. Set the zone you send (Florida: 5),
+power, and whether you're **assisted**: CQ WW counts a CW decoder, RBN and spotting as
+QSO finding assistance, so with them on you enter Single Operator Assisted (the default).
+
+- **Zone box** next to the Call box. Left empty, the zone the decoder heard after their
+  report (green) or the country file's guess (grey) is logged.
+- As you type a call: the country, the points, **NEW ZONE / NEW COUNTRY** on this band,
+  and **DUPE**. The band strip greys out dupes and shows new multipliers in green.
+- **Enter sends message** (Space jumps to the Zone box). **Run:** an empty Call box sends
+  CQ, a call sends the exchange, then (with their zone) TU and logs it. **S&P:** a call
+  sends your call, then TU + your exchange and logs it.
+- Contest macros (`contest-macros.txt`, Setup > Edit contest macros) replace the F-keys
+  while Contest mode is on; `{ZONE}` is your zone.
+- The side column keeps score (points x (zones + countries), per band) and the rate.
+- The contest log starts fresh by itself at 0000Z when the contest starts; contacts made
+  before it (practice) stay in your regular log. **Save Cabrillo** writes the log to upload
+  at cqww.com/logcheck within 48 hours. Every contact is also in the regular ADIF log
+  (with `CONTEST_ID` and `CQZ`).
+- Countries come from AD1C's `cty.dat`. A copy is built in; put a newer one from
+  country-files.com in the data folder before the contest and restart.
 
 ## Updates
 

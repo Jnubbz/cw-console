@@ -6,6 +6,7 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/Jnubbz/cw-console/contest"
 	"math"
 	"os"
 	"path/filepath"
@@ -66,13 +67,23 @@ type Settings struct {
 	Park         string         `json:"park"`     // POTA reference being activated ("" = PARK from the macros, if set)
 	Radio        string         `json:"radio"`    // current radio profile
 	Radios       []RadioProfile `json:"radios"`   // the radio-specific settings, per radio
+	// contest mode
+	Contest         string `json:"contest"`         // "" off | "cqww"
+	ContestSP       bool   `json:"contestSP"`       // search and pounce (Enter sends my call), else running
+	ContestZone     int    `json:"contestZone"`     // the zone I send; 0 = cty.dat's for MYCALL
+	ContestPower    string `json:"contestPower"`    // HIGH | LOW | QRP (Cabrillo)
+	ContestAssisted bool   `json:"contestAssisted"` // decoder / RBN used: CQ WW's "assisted" category
+	ContestLocation string `json:"contestLocation"` // Cabrillo LOCATION ("" = MYSTATE for US, else DX)
+	ContestName     string `json:"contestName"`
+	ContestEmail    string `json:"contestEmail"`
+	ContestSince    int64  `json:"contestSince"` // unix: the contest log starts here
 }
 
 func defaultSettings() Settings {
 	return Settings{Pitch: 600, Sensitivity: 0.5, Improved: true, Decoder: "classic",
 		AISpeed: int(deepcw.SpeedAuto), AIFocus: true, WPM: 20, TxMode: "type", TxLine: "dtr", FT8PTTLine: "dtr",
 		Ops: ops.DefaultConfig(), Mode: "cw", FT8Depth: 3, FT8TxFreq: 1500, FT8Level: 50,
-		FT8CQPota: true, FT8AutoCQ: true, RigCtl: true, SpotsOn: true}
+		FT8CQPota: true, FT8AutoCQ: true, RigCtl: true, SpotsOn: true, ContestPower: "LOW", ContestAssisted: true}
 }
 
 type Engine struct {
@@ -103,8 +114,17 @@ type Engine struct {
 	// operating aids
 	assist  *ops.Assist
 	logbook *ops.Logbook
-	call    string // the Call box
-	callSeq int64  // bumps when the app changes the Call box (auto-reply, after logging)
+
+	// contest
+	cty      *contest.CTY
+	ctyFrom  string
+	ct       *contest.CQWW
+	ctKey    string
+	zoneRcvd int    // the Zone box (0 empty)
+	zoneSeq  int    // bumps when the app clears it
+	ctSentTo string // the call the exchange (Run) / my call (S&P) last went to
+	call     string // the Call box
+	callSeq  int64  // bumps when the app changes the Call box (auto-reply, after logging)
 
 	note      string
 	noteUntil time.Time
@@ -279,6 +299,7 @@ func (e *Engine) applySettings(raw json.RawMessage) {
 	if appliance && s.TxPort != old.TxPort && s.AudioDevice == "" {
 		e.restartCapture = true // Auto audio input: listen on the new port's radio
 	}
+	e.clampContestLocked(old)
 	e.assist.Cfg = s.Ops
 	if e.dec != nil {
 		if s.Pitch != old.Pitch {
@@ -725,6 +746,7 @@ func (e *Engine) stateLocked() event {
 	}
 	e.tx.fillStateLocked(s)
 	e.fillOpsLocked(s)
+	e.fillContestLocked(s)
 	if appliance {
 		on, dev, err, want := e.cap.status()
 		if time.Since(e.boxScan) > 2*time.Second { // cheap, but no need 10x a second
@@ -743,18 +765,19 @@ func (e *Engine) stateLocked() event {
 }
 
 type stateMsg struct {
-	Settings   Settings  `json:"settings"`
-	Spec       []float32 `json:"spec"`
-	WF         []byte    `json:"wf,omitempty"`    // newest waterfall row, 0-255 (base64 in JSON)
-	Level      *levelMsg `json:"level,omitempty"` // receive audio level, dBFS
-	Running    bool      `json:"running"`
-	Key        bool      `json:"key"`
-	Signal     bool      `json:"signal"`
-	WPM        int       `json:"wpm"`
-	Status     string    `json:"status"`
-	Note       string    `json:"note"`
-	FocusWidth float64   `json:"focusWidth"`
-	SIMD       string    `json:"simd"`
+	Settings   Settings      `json:"settings"`
+	Spec       []float32     `json:"spec"`
+	WF         []byte        `json:"wf,omitempty"`    // newest waterfall row, 0-255 (base64 in JSON)
+	Level      *levelMsg     `json:"level,omitempty"` // receive audio level, dBFS
+	Contest    *contestState `json:"contest,omitempty"`
+	Running    bool          `json:"running"`
+	Key        bool          `json:"key"`
+	Signal     bool          `json:"signal"`
+	WPM        int           `json:"wpm"`
+	Status     string        `json:"status"`
+	Note       string        `json:"note"`
+	FocusWidth float64       `json:"focusWidth"`
+	SIMD       string        `json:"simd"`
 	// sender
 	TxOn     bool     `json:"txOn"`
 	TxActive bool     `json:"txActive"`

@@ -31,6 +31,9 @@ type txEngine struct {
 	macros    [8]cw.Macro
 	ctx       cw.MacroContext
 	macroText string
+
+	contestMacros [8]cw.Macro // the F-keys in Contest mode (contest-macros.txt)
+	contestText   string
 }
 
 type keyLine interface {
@@ -41,6 +44,7 @@ type keyLine interface {
 func (t *txEngine) init(e *Engine) {
 	t.e = e
 	t.loadMacros()
+	t.loadContestMacros()
 }
 
 func macrosPath() string { return filepath.Join(supportDir(), "macros.txt") }
@@ -180,19 +184,22 @@ func (t *txEngine) sendMacroLocked(i int, call string, manual bool) error {
 	if i < 0 || i >= 8 {
 		return errors.New("bad macro")
 	}
-	m := t.macros[i]
+	m := t.activeMacros()[i]
 	if m.Text == "" {
 		return errors.New("F" + itoa(i+1) + " is empty; edit the macros to set it")
 	}
 	body, doLog := ops.StripLog(m.Text)
 	ctx := t.ctx
 	ctx.HisCall = strings.ToUpper(strings.TrimSpace(call))
+	ctx.Extra = map[string]string{}
+	for k, v := range t.ctx.Extra {
+		ctx.Extra[k] = v
+	}
 	if p := t.e.parkLocked(); p != "" { // {PARK}: the park set on the main screen
-		ctx.Extra = map[string]string{}
-		for k, v := range t.ctx.Extra {
-			ctx.Extra[k] = v
-		}
 		ctx.Extra["PARK"] = p
+	}
+	if z := t.e.myZoneLocked(); z > 0 { // {ZONE}: my CQ zone (contests)
+		ctx.Extra["ZONE"] = itoa(z)
 	}
 	text := cw.Expand(body, ctx)
 	now := time.Now()
@@ -290,7 +297,7 @@ func (t *txEngine) fillStateLocked(s *stateMsg) {
 	s.TxQueue = string(t.queue)
 	s.TxPort = t.portName
 	s.QueueSeq = t.queueSeq
-	for _, m := range t.macros {
+	for _, m := range t.activeMacros() {
 		s.Macros = append(s.Macros, m.Label)
 	}
 }
