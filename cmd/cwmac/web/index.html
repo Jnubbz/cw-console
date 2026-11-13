@@ -270,7 +270,7 @@
   #rigModal .vfo .tx { color: var(--red); font-size: 12px; font-weight: 600; min-width: 22px; }
   #rigModal .mhz { font: 600 24px var(--mono); font-variant-numeric: tabular-nums; min-width: 9.5ch; }
   #rigModal input.mhzin { width: 118px; font-family: var(--mono); }
-  #rigModal button[aria-pressed="true"], #side button[aria-pressed="true"] { background: var(--sel-bg); border-color: var(--brass); color: var(--brass); font-weight: 600; }
+  #rigModal button[aria-pressed="true"], #side button[aria-pressed="true"], #bkOn[aria-pressed="true"] { background: var(--sel-bg); border-color: var(--brass); color: var(--brass); font-weight: 600; }
   #rigStat { font-size: 13px; }
   #rigBands { gap: 4px; }
   #rigBands button { min-width: 40px; padding: 6px 6px; font-variant-numeric: tabular-nums; }
@@ -298,6 +298,22 @@
   #qBands { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
   #qBands button, .qgrid button { min-height: 30px; padding: 4px 0; font-variant-numeric: tabular-nums; }
   .qgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .qgrid.w5 { grid-template-columns: repeat(5, 1fr); }
+  /* live meter (Radio panel) */
+  #qMeter { display: grid; grid-template-columns: 54px 1fr; gap: 3px 8px; align-items: center; font: 600 13px var(--mono); margin: 4px 0 2px; }
+  #qMeter[hidden] { display: none; }
+  #qMeter .lb { color: var(--dim); font-size: 12px; white-space: nowrap; }
+  #qMeter .bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.07); overflow: hidden; position: relative; }
+  #qMeter .bar i { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--brass); transition: width .15s linear; }
+  #qMeter .bar.hot i { background: #e2ae4a; }
+  #qMeter .bar.bad i { background: #e5484d; }
+  #qMeter.tx .lb { color: #ff8a80; }
+  /* break-in by Transmit */
+  #bkin { display: inline-flex; gap: 4px; align-items: center; }
+  #bkin[hidden], #bkWarn[hidden] { display: none; }
+  #bkin select { min-height: 30px; padding: 2px 6px; font-size: 13px; }
+  #bkOn { min-height: 30px; padding: 3px 10px; font-weight: 700; font-size: 13px; }
+  #bkWarn { color: #e2ae4a; font-size: 12px; cursor: pointer; text-decoration: underline dotted; white-space: nowrap; }
   #qClar { font: 600 14px var(--mono); text-align: center; align-self: center; }
   #qMsg { font-size: 12px; color: var(--faint); }
   #qMsg.err { color: #ff8a80; }
@@ -355,6 +371,7 @@
     <span class="val" id="pitchv"></span>
   </span>
   <button id="autotune">Auto tune</button>
+  <button id="zeroin" title="Zero in: moves the radio's dial so the station the decoder is on sounds at the radio's CW pitch (centered in its filters, same tone as your sidetone). CW only, never while sending" disabled>Zero in</button>
 </div>
 <canvas id="spec" class="cwonly"></canvas>
 <div id="stripbox" class="cwonly" hidden>
@@ -410,6 +427,7 @@
   <div id="strip"><span id="lamp">off</span><span id="sent"><span></span></span><span id="queue"></span><span id="hint"></span></div>
   <div class="row">
     <label class="arm"><input id="txon" type="checkbox"> Transmit</label>
+    <span id="bkin" hidden title="The radio's break-in: with it off, CW on the key line only plays the sidetone (nothing goes out)"><button id="bkOn" aria-pressed="false">BK-IN</button><select id="bkType" title="Semi: the radio waits the delay after the last element. Full (QSK): you hear the band between elements"><option value="semi">Semi</option><option value="full">Full</option></select><select id="bkDelay" title="Semi break-in delay"></select></span><span id="bkWarn" hidden title="Click to turn BK-IN on">BK-IN off: keying only plays sidetone</span>
     <input id="call" type="text" maxlength="12" autocomplete="off" spellcheck="false" placeholder="Call" aria-label="Call"><input id="zone" class="ctonly" type="text" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="Zn" aria-label="Their CQ zone" title="Their CQ zone, from the exchange. Left empty: the zone the decoder heard (green) or cty.dat's guess (grey) is logged"><span id="dupe" title="Already worked on this band today" style="color:#ff8a80;font-weight:600;display:none">DUPE</span>
     <input id="txin" type="text" autocomplete="off" spellcheck="false" placeholder="Type here to send">
     <button id="stop" class="danger" title="Stop sending (Esc)">Stop</button>
@@ -446,6 +464,7 @@
     <h3>Radio <span class="spacer"></span><span id="qMode" class="dim" style="letter-spacing:0;text-transform:none"></span><button id="qMore" title="All rig controls and the SWR sweep">More...</button></h3>
     <div id="qVfo" title="VFO A">-</div>
     <div id="qVfoB">B -</div>
+    <div id="qMeter" hidden><span class="lb" id="qmS">S-</span><span class="bar" id="qmSb"><i></i></span></div>
     <div id="qBands"></div>
     <div class="qgrid">
       <button id="qSplit" aria-pressed="false" title="Split: listen on A, transmit on B">Split</button>
@@ -457,7 +476,14 @@
       <button id="qRit" aria-pressed="false" title="Clarifier on receive">RIT</button>
       <button data-qclar="-50">-50</button><span id="qClar">+0</span><button data-qclar="50">+50</button>
     </div>
-    <div class="row"><label for="qPwr" style="min-width:auto">Power</label><input id="qPwr" type="range" min="5" max="100" step="1" style="flex:1;min-width:0"><span class="val" id="qPwrv" style="min-width:44px;text-align:right"></span></div>
+    <div class="qgrid w5" id="qWidth" title="CW filter width (the radio's WIDTH)"></div>
+    <div class="qgrid">
+      <button id="qApf" aria-pressed="false" title="Audio peak filter: a narrow peak at the pitch, for weak signals">APF</button>
+      <button id="qDnf" aria-pressed="false" title="Auto notch: takes out a steady carrier">Notch</button>
+      <button id="qShiftDn" title="IF shift down 40 Hz (double-click the line below to center)">&#9664;</button><button id="qShiftUp" title="IF shift up 40 Hz">&#9654;</button>
+    </div>
+    <div class="row dim" id="qShiftv" style="font-size:12px;margin-top:-2px"></div>
+    <div class="row"><label for="qPwr" style="min-width:auto" title="Remembered per band, home and POTA separately (Setup > Radio)">Power</label><input id="qPwr" type="range" min="5" max="100" step="1" style="flex:1;min-width:0"><span class="val" id="qPwrv" style="min-width:44px;text-align:right"></span></div>
     <div class="row" title="RF gain (the radio's RF/SQL knob). Turned well down, weak signals never reach the decoder."><label for="qRf" style="min-width:auto">RF</label><input id="qRf" type="range" min="0" max="100" step="1" style="flex:1;min-width:0"><span class="val" id="qRfv" style="min-width:44px;text-align:right"></span></div>
     <div class="row" title="AF gain: the radio's volume knob"><label for="qAf" style="min-width:auto">AF</label><input id="qAf" type="range" min="0" max="100" step="1" style="flex:1;min-width:0"><span class="val" id="qAfv" style="min-width:44px;text-align:right"></span></div>
     <div id="qMsg"></div>
@@ -494,6 +520,8 @@
       <button id="capbtn" title="Start or stop listening to the input">Stop listening</button></div>
     <div class="row"><label for="port" title="The radio's USB serial port: CW keying lines, PTT lines and CAT (on the FT-710, its second port; CAT is on the first)">Key port</label><select id="port" style="flex:1;min-width:0;max-width:100%"></select><button id="rescan" title="Look for ports again">&#8635;</button></div>
     <div class="row"><label for="catport" title="The FT-710's CAT port (its Enhanced COM port, CAT-1, the first of its two), used by the Rig sheet. Auto finds it by asking each USB serial port for the FT-710's ID">CAT port</label><select id="catport" style="flex:1;min-width:0;max-width:100%"><option value="">Auto (find the FT-710)</option></select></div>
+    <div class="row"><label title="The send speed goes to the radio's keyer (your paddle matches), and the Pitch slider sets the radio's CW pitch and sidetone. Zero in then puts a station on that same pitch"><input id="rigsync" type="checkbox"> One speed and one pitch (FT-710)</label></div>
+    <div class="row"><label title="Each band keeps the power you last used on it, home and POTA separately, set when the radio changes band"><input id="bandpwr" type="checkbox"> Power remembered per band</label></div>
     <div class="row"><label for="line" title="How CW keys the rig. DTR/RTS: a line of the key port, rig in CW (FT-710: PC KEYING to match). CAT keyer: the text goes to the radio's own keyer (Kenwood KY). Audio tone: for radios with no key line over USB (FX-4CR): a clean keyed tone into the rig's USB audio, rig in USB">CW keying</label><select id="line"><option value="dtr">DTR</option><option value="rts">RTS</option><option value="cat">CAT keyer</option><option value="audio">Audio tone</option></select></div>
     <div class="note" id="audionote" hidden>Audio tone: CW goes out as a clean keyed tone at the decoder's pitch, through the rig's USB audio, keyed by the PTT below (the FX-4CR needs CAT) at the TX level. The rig must be in USB; Rig control puts it there.</div>
     <div class="row boxonly"><label for="f8ptt" title="How the box keys the rig to send audio: FT8, and CW as an audio tone. RTS/DTR: a line of the key port (FT-710: RPTT SELECT to match). CAT: a TX1; command (the FX-4CR needs this: its RTS PTT sends the mic)">PTT</label><select id="f8ptt"><option value="rts">RTS</option><option value="dtr">DTR</option><option value="cat">CAT (TX1;)</option></select></div>
@@ -584,6 +612,20 @@
       <button data-clar="10">+10</button><button data-clar="100">+100</button>
       <button id="rigClarClr" title="Offset back to zero">Clear</button>
     </div>
+  </section>
+  <section>
+    <h3>Receive and keying</h3>
+    <div class="row"><label for="rgWidth">Width</label><select id="rgWidth"></select>
+      <button id="rgApf" aria-pressed="false" title="Audio peak filter">APF</button>
+      <span class="grp" style="flex:1;min-width:200px"><label for="rgShift">IF shift</label><input id="rgShift" type="range" min="-1200" max="1200" step="20" style="flex:1"><span class="val" id="rgShiftv"></span></span>
+      <button id="rgShift0" title="IF shift back to center">0</button></div>
+    <div class="row"><button id="rgDnf" aria-pressed="false" title="Auto notch: steady carriers">Auto notch</button>
+      <button id="rgNotch" aria-pressed="false" title="Manual notch at the frequency on the right">Manual notch</button>
+      <span class="grp" style="flex:1;min-width:200px"><input id="rgNotchF" type="range" min="10" max="3200" step="10" style="flex:1" title="Notch frequency (audio)"><span class="val" id="rgNotchFv"></span></span></div>
+    <div class="row"><button id="rgBk" aria-pressed="false">BK-IN</button>
+      <label for="rgBkType">type</label><select id="rgBkType"><option value="semi">Semi</option><option value="full">Full (QSK)</option></select>
+      <label for="rgBkDelay">delay</label><select id="rgBkDelay"></select>
+      <span class="dim" id="rgKeyer"></span></div>
   </section>
   <section>
     <h3>Power and tuner</h3>
@@ -755,6 +797,9 @@ function applyState(st) {
   if (st.wf) cwfPush(st.wf);
   renderLevel(st);
   renderContest(st);
+  renderBkWarn(); renderZeroIn();
+  if (!recent("rigsync")) $("rigsync").checked = !!st.settings.rigSync;
+  if (!recent("bandpwr")) $("bandpwr").checked = !!st.settings.bandPower;
   if (!recent("pitch")) $("pitch").value = s.pitch;
   $("pitchv").textContent = Math.round(s.pitch) + " Hz";
   if (!recent("sens")) $("sens").value = Math.round(s.sensitivity * 100);
@@ -2148,7 +2193,113 @@ function qRender(r) { // from any rig read (the Rig sheet, the strip's poll, a b
   }
   $("qRfv").classList.toggle("low", rfLow(st));
   $("qRfv").title = rfLow(st) ? "RF gain is turned well down: weak signals won't make it to the decoder" : "";
+  ctlRender(r);
 }
+
+// ---- CW controls: break-in, width / APF / IF shift, notches (FT-710) ----
+const CW_WIDTHS = [50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 800, 1200, 1400, 1700, 2000, 2400, 3000, 3200, 3500, 4000];
+const BK_DELAYS = [30, 50, 100, 150, 200, 250, 300, 400, 500, 700, 1000, 1500, 2000, 3000];
+for (const w of [250, 300, 400, 500, 600]) {
+  const b = document.createElement("button"); b.textContent = w; b.dataset.w = w; b.title = w + " Hz";
+  b.onclick = () => rigDo("width", w); $("qWidth").appendChild(b);
+}
+for (const w of CW_WIDTHS) { const o = document.createElement("option"); o.value = w; o.textContent = w >= 1000 ? (w / 1000) + " kHz" : w + " Hz"; $("rgWidth").appendChild(o); }
+for (const id of ["bkDelay", "rgBkDelay"]) for (const d of BK_DELAYS) { const o = document.createElement("option"); o.value = d; o.textContent = d >= 1000 ? (d / 1000) + " s" : d + " ms"; $(id).appendChild(o); }
+const pressed = (id, on) => $(id).setAttribute("aria-pressed", String(!!on));
+function selVal(id, v) { // a value the list may not have (set on the radio): add it
+  if (v < 0 || recent(id)) return;
+  if (![...$(id).options].some((o) => +o.value === v)) { const o = document.createElement("option"); o.value = v; o.textContent = v + (id.includes("Width") ? " Hz" : " ms"); $(id).appendChild(o); }
+  $(id).value = v;
+}
+const fmtShift = (hz) => hz === 0 ? "IF shift 0" : `IF shift ${hz > 0 ? "+" : ""}${hz} Hz`;
+function ctlRender(r) {
+  const c = r && r.controls; RIG.ctl = c || null;
+  $("bkin").hidden = !c;
+  for (const id of ["qApf", "qDnf", "qShiftDn", "qShiftUp"]) $(id).disabled = !c;
+  for (const b of $("qWidth").children) b.disabled = !c;
+  renderBkWarn();
+  if (!c) { $("qShiftv").textContent = ""; return; }
+  pressed("bkOn", c.breakIn); pressed("rgBk", c.breakIn);
+  for (const id of ["bkType", "rgBkType"]) if (!recent(id)) $(id).value = c.fullBreakIn ? "full" : "semi";
+  selVal("bkDelay", c.delayMs); selVal("rgBkDelay", c.delayMs);
+  $("bkDelay").disabled = $("rgBkDelay").disabled = c.fullBreakIn; // QSK has no delay
+  for (const b of $("qWidth").children) b.setAttribute("aria-pressed", String(+b.dataset.w === c.widthHz));
+  selVal("rgWidth", c.widthHz);
+  pressed("qApf", c.apf); pressed("rgApf", c.apf); pressed("qDnf", c.autoNotch); pressed("rgDnf", c.autoNotch); pressed("rgNotch", c.notch);
+  $("qShiftv").textContent = fmtShift(c.ifShiftHz) + (c.widthHz > 0 ? ` · width ${c.widthHz} Hz` : "");
+  if (!recent("rgShift")) $("rgShift").value = c.ifShiftHz;
+  $("rgShiftv").textContent = (recent("rgShift") ? $("rgShift").value : c.ifShiftHz) + " Hz";
+  if (c.notchHz > 0 && !recent("rgNotchF")) $("rgNotchF").value = c.notchHz;
+  $("rgNotchFv").textContent = (recent("rgNotchF") ? $("rgNotchF").value : c.notchHz) + " Hz";
+  $("rgKeyer").textContent = (c.keyWpm > 0 ? `keyer ${c.keyWpm} WPM` : "") + (c.pitchHz > 0 ? ` · pitch ${c.pitchHz} Hz` : "");
+}
+// Key-line CW goes nowhere with BK-IN off: say so by Transmit.
+function renderBkWarn() {
+  const c = RIG.ctl, line = S && S.settings.txLine;
+  $("bkWarn").hidden = !(c && !c.breakIn && S && S.txOn && (line === "dtr" || line === "rts"));
+}
+$("bkWarn").onclick = () => rigDo("breakIn", 1);
+$("bkOn").onclick = $("rgBk").onclick = () => rigQueue(() => RIG.ctl && rigCall("breakIn", RIG.ctl.breakIn ? 0 : 1));
+for (const id of ["bkType", "rgBkType"]) $(id).onchange = () => { touched[id] = Date.now(); rigDo("breakInType", $(id).value); };
+for (const id of ["bkDelay", "rgBkDelay"]) $(id).onchange = () => { touched[id] = Date.now(); rigDo("breakInDelay", $(id).value); };
+$("rgWidth").onchange = () => { touched.rgWidth = Date.now(); rigDo("width", $("rgWidth").value); };
+$("qApf").onclick = $("rgApf").onclick = () => rigQueue(() => RIG.ctl && rigCall("apf", RIG.ctl.apf ? 0 : 1));
+$("qDnf").onclick = $("rgDnf").onclick = () => rigQueue(() => RIG.ctl && rigCall("autoNotch", RIG.ctl.autoNotch ? 0 : 1));
+$("rgNotch").onclick = () => rigQueue(() => RIG.ctl && rigCall("notch", RIG.ctl.notch ? 0 : 1));
+const shiftBy = (d) => rigQueue(() => RIG.ctl && rigCall("ifShift", Math.max(-1200, Math.min(1200, RIG.ctl.ifShiftHz + d))));
+$("qShiftDn").onclick = () => shiftBy(-40); $("qShiftUp").onclick = () => shiftBy(40);
+$("qShiftv").ondblclick = $("rgShift0").onclick = () => rigDo("ifShift", 0);
+$("rgShift").oninput = () => { touched.rgShift = Date.now(); $("rgShiftv").textContent = $("rgShift").value + " Hz"; };
+$("rgShift").onchange = () => { touched.rgShift = Date.now(); rigDo("ifShift", $("rgShift").value); };
+$("rgNotchF").oninput = () => { touched.rgNotchF = Date.now(); $("rgNotchFv").textContent = $("rgNotchF").value + " Hz"; };
+$("rgNotchF").onchange = () => { touched.rgNotchF = Date.now(); rigDo("notchFreq", $("rgNotchF").value); };
+
+// ---- zero-in; one speed and one pitch ----
+$("zeroin").onclick = () => rigQueue(async () => { const r = await rigCall("zeroIn"); if (r && r.error) note(r.error); });
+function renderZeroIn() {
+  const ok = !!RIG.st && S && S.settings.mode === "cw" && !S.txActive;
+  $("zeroin").disabled = !ok;
+}
+// The Pitch slider is the radio's pitch too (like its PITCH knob): only when you move it,
+// not when a waterfall click moves the decoder (Zero in brings the station to the pitch).
+$("pitch").addEventListener("change", () => {
+  if (S && S.settings.rigSync && RIG.st) rigDo("pitch", Math.max(300, Math.min(1050, Math.round($("pitch").value / 10) * 10)));
+});
+$("wpm").addEventListener("change", () => { if (S && S.settings.rigSync && RIG.st) rigDo("keySpeed", $("wpm").value); });
+$("rigsync").onchange = () => { touched.rigsync = Date.now(); setting({ rigSync: $("rigsync").checked }); };
+$("bandpwr").onchange = () => { touched.bandpwr = Date.now(); setting({ bandPower: $("bandpwr").checked }); };
+
+// ---- live meters: S-meter on receive; power, ALC, SWR on transmit ----
+const MET = { busy: false, missUntil: 0 };
+function meterRow(label, frac, cls) {
+  const lb = document.createElement("span"); lb.className = "lb"; lb.textContent = label;
+  const bar = document.createElement("span"); bar.className = "bar" + (cls ? " " + cls : "");
+  const i = document.createElement("i"); i.style.width = Math.max(0, Math.min(100, frac * 100)) + "%"; bar.appendChild(i);
+  return [lb, bar];
+}
+async function meterTick() {
+  if (MET.busy || document.hidden || Date.now() < MET.missUntil || RIG.busy || (RIG.sweep && RIG.sweep.running)) return;
+  MET.busy = true;
+  try {
+    const m = await api("/api/rig/meters");
+    const box = $("qMeter");
+    if (!m || m.error) { box.hidden = true; MET.missUntil = Date.now() + 30000; return; }
+    box.hidden = false; box.classList.toggle("tx", m.tx);
+    if (!m.tx) {
+      // S0 .. S9+60 over the bar (S9 at 60%)
+      const f = m.sDb <= 0 ? (m.sDb + 54) / 54 * 0.6 : 0.6 + m.sDb / 60 * 0.4;
+      box.replaceChildren(...meterRow(m.s, f, m.sDb > 20 ? "hot" : ""));
+      box.title = `S-meter ${m.s}`;
+    } else {
+      box.replaceChildren(
+        ...meterRow(m.powerW.toFixed(0) + " W", m.powerW / 100),
+        ...meterRow("ALC " + m.alc.toFixed(0), m.alc / 100, m.alc > 60 ? "bad" : m.alc > 25 ? "hot" : ""),
+        ...meterRow("SWR " + (m.swr ? m.swr.toFixed(1) : "-"), m.swr ? (m.swr - 1) / 2 : 0, m.swr > 2.5 ? "bad" : m.swr > 1.5 ? "hot" : ""));
+      box.title = "Transmitting. For FT8, set the audio level so ALC barely moves";
+    }
+  } catch { } finally { MET.busy = false; }
+}
+setInterval(meterTick, 300);
 // RF gain under 30%: on purpose sometimes (a loud band), but it's how decoding quietly dies.
 const rfLow = (st) => !!st && st.rfGain !== undefined && st.rfGain < 77;
 const pct255 = (p) => Math.round(Math.max(0, Math.min(100, +p)) * 255 / 100);
