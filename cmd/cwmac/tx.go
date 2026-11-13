@@ -216,6 +216,12 @@ func (t *txEngine) sendMacroLocked(i int, call string, manual bool) error {
 		}
 	}
 	if doLog {
+		if !t.e.autoLogLocked() {
+			if ctx.HisCall != "" {
+				t.e.setNoteLocked("Not logged (Auto-log is off): Log QSO or Cmd/Ctrl+Enter logs " + ctx.HisCall)
+			}
+			return nil
+		}
 		return t.e.logLocked(ctx.HisCall)
 	}
 	return nil

@@ -435,7 +435,8 @@
   <div class="row">
     <span class="grp"><label for="freq">Freq</label><input id="freq" type="text" placeholder="14.058" style="width:96px" autocomplete="off" spellcheck="false" title="The radio's frequency (follows it over CAT). Type MHz (14.058), kHz (14058) or a band (20m) and press Enter to tune the radio there">
       <span id="band" class="dim" style="min-width:34px"></span></span>
-    <button id="logbtn" title="Log the call in the Call box">Log QSO</button><button id="undo" title="Remove the last logged contact">Undo</button><button id="logdir">Logs</button>
+    <label id="autologLbl" title="Macros with {LOG} (TU, 73; in a contest the TU that Enter sends) log the contact when sent. Remembered separately for everyday CW and Contest mode. Off: Log QSO or Cmd/Ctrl+Enter logs."><input id="autolog" type="checkbox"> Auto-log</label>
+    <button id="logbtn" title="Log the call in the Call box (Cmd/Ctrl+Enter in the Call box)">Log QSO</button><button id="undo" title="Remove the last logged contact">Undo</button><button id="logdir">Logs</button>
     <span class="spacer"></span><span id="opsstat"></span>
   </div>
 </div>
@@ -1092,6 +1093,9 @@ document.addEventListener("keydown", (e) => {
   const d = /^Digit([1-8])$/.exec(e.code);
   if (d && e.altKey && !e.metaKey && !e.ctrlKey) { e.preventDefault(); sendMacro(+d[1] - 1); return; }
   const inCt = S && S.contest && (document.activeElement === $("call") || document.activeElement === $("zone"));
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && (document.activeElement === $("call") || document.activeElement === $("zone"))) {
+    e.preventDefault(); $("logbtn").onclick(); return; // log it now, whatever Auto-log says
+  }
   if (inCt && e.key === "Enter") { e.preventDefault(); contestEnter(); return; }
   if (inCt && e.key === " " && document.activeElement === $("call")) { e.preventDefault(); $("zone").focus(); $("zone").select(); return; }
   if (e.key === "Enter" && document.activeElement === $("call")) { e.preventDefault(); txin.focus(); }
@@ -2219,6 +2223,9 @@ $("zone").addEventListener("input", () => { callTypedAt = Date.now(); $("zone").
 const fmtUTC = (u) => new Date(u * 1000).toISOString().slice(0, 16).replace("T", " ") + "Z";
 function renderContest(st) {
   const s = st.settings, c = st.contest;
+  const al = c ? s.contestAutoLog : s.autoLog; // Auto-log: per mode
+  if (!recent("autolog")) $("autolog").checked = !!al;
+  $("autologLbl").className = al ? "on" : "";
   document.body.classList.toggle("contest", !!c);
   if (!recent("contest")) $("contest").value = s.contest || "";
   if (!recent("ctzone")) $("ctzone").value = s.contestZone || "";
@@ -2253,10 +2260,10 @@ function renderContest(st) {
     }
     if (k.workedOn && k.workedOn.length && !k.dupe) { const w = document.createElement("span"); w.className = "dim"; w.textContent = "worked on " + k.workedOn.join(", "); info.appendChild(w); }
   }
-  const hz = !!c.zone;
+  const hz = !!c.zone, lg = c.autoLog ? " + log" : " (then Cmd/Ctrl+Enter logs)";
   $("cthint").textContent = !c.sp
-    ? (!call ? "Enter: CQ" : !c.sent ? "Enter: exchange" : hz ? "Enter: TU + log" : "Enter: AGN")
-    : (!call ? "Type their call" : !c.sent ? "Enter: my call" : hz ? "Enter: TU + exch + log" : "Enter: my call again");
+    ? (!call ? "Enter: CQ" : !c.sent ? "Enter: exchange" : hz ? "Enter: TU" + lg : "Enter: AGN")
+    : (!call ? "Type their call" : !c.sent ? "Enter: my call" : hz ? "Enter: TU + exch" + lg : "Enter: my call again");
   // score
   const sm = c.summary;
   $("ctScore").textContent = sm.score.toLocaleString();
@@ -2274,6 +2281,10 @@ function renderContest(st) {
     return [r.time, r.call, r.band, r.dupe ? "dupe" : (r.mult ? "★ " : "") + r.points].map((v) => { const e = document.createElement("span"); e.textContent = v; if (cl) e.className = cl; return e; });
   }));
 }
+$("autolog").onchange = () => {
+  touched.autolog = Date.now();
+  setting(S && S.contest ? { contestAutoLog: $("autolog").checked } : { autoLog: $("autolog").checked });
+};
 $("contest").onchange = () => { touched.contest = Date.now(); setting({ contest: $("contest").value }); };
 $("ctzone").onchange = () => { touched.ctzone = Date.now(); setting({ contestZone: parseInt($("ctzone").value, 10) || 0 }); };
 $("ctloc").onchange = () => { touched.ctloc = Date.now(); setting({ contestLocation: $("ctloc").value.trim().toUpperCase() }); };

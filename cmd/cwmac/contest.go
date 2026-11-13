@@ -87,6 +87,14 @@ func (t *txEngine) activeMacros() *[8]cw.Macro {
 	return &t.macros
 }
 
+// autoLogLocked: whether {LOG} in a macro logs (Auto-log, per mode: everyday CW / contest).
+func (e *Engine) autoLogLocked() bool {
+	if e.st.Contest != "" {
+		return e.st.ContestAutoLog
+	}
+	return e.st.AutoLog
+}
+
 // contestCTY: AD1C's country file. A cty.dat in the data folder wins over the built-in
 // one (drop a new one there before a contest; it's read when the app starts).
 func (e *Engine) contestCTY() *contest.CTY {
@@ -293,6 +301,7 @@ type contestState struct {
 	ZoneFrom  string          `json:"zoneFrom"` // typed | heard | guess
 	ZoneSeq   int             `json:"zoneSeq"`  // bumps when the app clears the Zone box
 	Sent      bool            `json:"sent"`     // the exchange (Run) / my call (S&P) went to this call
+	AutoLog   bool            `json:"autoLog"`
 	Summary   contest.Summary `json:"summary"`
 	Recent    []ctRow         `json:"recent"`
 	Since     int64           `json:"since"`
@@ -323,7 +332,7 @@ func (e *Engine) fillContestLocked(s *stateMsg) {
 	e.contestTickLocked(now)
 	ct := e.contestLogLocked()
 	_, band := ops.ParseFreq(e.st.Freq)
-	c := &contestState{On: true, SP: e.st.ContestSP, MyZone: e.myZoneLocked(), Since: e.st.ContestSince,
+	c := &contestState{On: true, SP: e.st.ContestSP, AutoLog: e.st.ContestAutoLog, MyZone: e.myZoneLocked(), Since: e.st.ContestSince,
 		ZoneSeq: e.zoneSeq, Summary: ct.Summary(now), Recent: []ctRow{}, Location: e.contestLocationLocked()}
 	if e.call != "" {
 		c.Zone, c.ZoneFrom = e.theirZoneLocked(e.call)
