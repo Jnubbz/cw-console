@@ -143,9 +143,10 @@ func (e *Engine) ft710CAT() (ft710.CAT, catSpec, error) {
 }
 
 type rigReply struct {
-	State *ft710.State `json:"state,omitempty"`
-	Port  string       `json:"port,omitempty"`
-	Error string       `json:"error,omitempty"`
+	State    *ft710.State    `json:"state,omitempty"`
+	Controls *ft710.Controls `json:"controls,omitempty"` // break-in, filters, notch, pitch, keyer speed
+	Port     string          `json:"port,omitempty"`
+	Error    string          `json:"error,omitempty"`
 }
 
 // rigState reads the panel's state from the radio.
@@ -162,7 +163,19 @@ func (e *Engine) rigState() rigReply {
 	if err != nil {
 		return rigReply{Port: spec.Port, Error: err.Error()}
 	}
-	return rigReply{State: &st, Port: spec.Port}
+	ctl, _ := e.readControls(spec) // nil if this firmware won't say
+	e.mu.Lock()
+	e.rp.mu.Lock()
+	cmds, note := e.afterRigReadLocked(&st, ctl)
+	e.rp.mu.Unlock()
+	if note != "" {
+		e.setNoteLocked(note)
+	}
+	e.mu.Unlock()
+	if len(cmds) > 0 {
+		cat(cmds...)
+	}
+	return rigReply{State: &st, Controls: ctl, Port: spec.Port}
 }
 
 // rigAction: one panel button. value: Hz for freqA/freqB/clarOffset, W for power,
@@ -246,6 +259,9 @@ func (a rigAction) cmds() ([]string, error) {
 // doRig runs a panel action and returns the new state. Clarifier RX/TX switches keep the
 // other one as it is, so they need the current state first.
 func (e *Engine) doRig(a rigAction) rigReply {
+	if a.Action == "zeroIn" {
+		return e.zeroIn()
+	}
 	if e.sweepRunning() {
 		return rigReply{Error: "an SWR sweep is running (Stop it first)"}
 	}
@@ -272,8 +288,13 @@ func (e *Engine) doRig(a rigAction) rigReply {
 		}
 		cmds = []string{ft710.SetClar(st.ClarRX, st.ClarTX)}
 	default:
-		if cmds, err = a.cmds(); err != nil {
+		if cmds, err = a.controlCmds(); err != nil {
 			return rigReply{Port: spec.Port, Error: err.Error()}
+		}
+		if cmds == nil {
+			if cmds, err = a.cmds(); err != nil {
+				return rigReply{Port: spec.Port, Error: err.Error()}
+			}
 		}
 	}
 	if _, err := cat(cmds...); err != nil {

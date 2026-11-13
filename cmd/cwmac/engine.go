@@ -77,6 +77,10 @@ type Settings struct {
 	ContestName     string `json:"contestName"`
 	ContestEmail    string `json:"contestEmail"`
 	ContestSince    int64  `json:"contestSince"` // unix: the contest log starts here
+	// FT-710
+	RigSync     bool           `json:"rigSync"`     // the send speed -> the radio's keyer; the Pitch slider -> its CW pitch
+	BandPower   bool           `json:"bandPower"`   // power remembered per band (home / POTA)
+	PowerByBand map[string]int `json:"powerByBand"` // "home/20m": 50, "pota/20m": 5
 	// {LOG} in a macro logs the contact: one switch for everyday CW, one for contests
 	AutoLog        bool `json:"autoLog"`
 	ContestAutoLog bool `json:"contestAutoLog"`
@@ -87,7 +91,7 @@ func defaultSettings() Settings {
 		AISpeed: int(deepcw.SpeedAuto), AIFocus: true, WPM: 20, TxMode: "type", TxLine: "dtr", FT8PTTLine: "dtr",
 		Ops: ops.DefaultConfig(), Mode: "cw", FT8Depth: 3, FT8TxFreq: 1500, FT8Level: 50,
 		FT8CQPota: true, FT8AutoCQ: true, RigCtl: true, SpotsOn: true, ContestPower: "LOW", ContestAssisted: true,
-		AutoLog: true, ContestAutoLog: true}
+		AutoLog: true, ContestAutoLog: true, RigSync: true, BandPower: true}
 }
 
 type Engine struct {
@@ -152,7 +156,9 @@ type Engine struct {
 	ft8tx          ft8Tx
 	rig            rigCtl
 
-	rp rigPanel // FT-710 rig panel and SWR sweep (Mac and Pi box)
+	rp       rigPanel // FT-710 rig panel and SWR sweep (Mac and Pi box)
+	wfHist   [][]byte // the last second of waterfall rows (zero-in)
+	powerKey string   // "home/20m": the band whose power is set (power per band)
 
 	feeds spotFeeds // RBN and POTA spots for the band strip
 
@@ -508,6 +514,12 @@ func (e *Engine) updateSpectrumLocked() {
 	e.wfRow = nil
 	if e.audioRunning() {
 		e.wfRow = e.wf.Row(e.hist)
+		if e.wfRow != nil {
+			e.wfHist = append(e.wfHist, append([]byte(nil), e.wfRow...))
+			if len(e.wfHist) > 10 {
+				e.wfHist = e.wfHist[len(e.wfHist)-10:]
+			}
+		}
 	}
 	n := e.rate * 3 / 10
 	if len(e.hist) < n {

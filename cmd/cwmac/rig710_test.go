@@ -20,9 +20,10 @@ import (
 // fake710: a pty standing in for the FT-710's Enhanced COM port. It keeps the settings
 // the rig panel touches and answers their queries the way the radio does.
 type fake710 struct {
-	mu   sync.Mutex
-	v    map[string]string // command prefix -> current value
-	cmds []string
+	mu      sync.Mutex
+	v       map[string]string // command prefix -> current value
+	cmds    []string
+	sweepPO bool // RM5 reads 5 W (the sweep's carriers)
 }
 
 func (f *fake710) get(k string) string {
@@ -44,7 +45,9 @@ func startFake710(t *testing.T) (string, *fake710) {
 	port := filepath.Join(t.TempDir(), "usb-Silicon_Labs_CP2105_Dual_USB_to_UART_Bridge_Controller_X-if00-port0")
 	os.Symlink("/dev/pts/"+strconv.Itoa(int(n)), port)
 	f := &fake710{v: map[string]string{"FA": "014058000", "FB": "014060000", "MD0": "3", "FT": "0",
-		"CF000": "00000", "CF001": "+0000", "PC": "050", "BI": "0", "ID": "0800", "RG0": "255", "AG0": "040"}}
+		"CF000": "00000", "CF001": "+0000", "PC": "050", "BI": "0", "ID": "0800", "RG0": "255", "AG0": "040",
+		"EX020116": "0", "SD": "04", "SH0": "010", "CO02": "0000", "IS0": "0+0000", "KP": "30", "KS": "020",
+		"BC0": "0", "BP00": "000", "BP01": "100", "SM0": "095", "PO": "000"}}
 	go func() {
 		buf := make([]byte, 256)
 		var acc string
@@ -79,7 +82,8 @@ func (f *fake710) handle(cmd string) string {
 	defer f.mu.Unlock()
 	f.cmds = append(f.cmds, cmd)
 	body := strings.TrimSuffix(cmd, ";")
-	for _, k := range []string{"CF000", "CF001", "MD0", "FA", "FB", "FT", "PC", "BI", "ID", "RG0", "AG0"} {
+	for _, k := range []string{"CF000", "CF001", "MD0", "FA", "FB", "FT", "PC", "BI", "ID", "RG0", "AG0",
+		"EX020116", "SD", "SH0", "CO02", "IS0", "KP", "KS", "BC0", "BP00", "BP01", "SM0"} {
 		if strings.HasPrefix(body, k) {
 			if rest := body[len(k):]; rest != "" {
 				f.v[k] = rest
@@ -92,10 +96,18 @@ func (f *fake710) handle(cmd string) string {
 		}
 	}
 	switch body {
+	case "RM4":
+		return "RM4064000;" // ALC a quarter
 	case "RM6":
 		return "RM6026000;" // SWR 1.2
 	case "RM5":
-		return "RM5027;" // 5 W
+		if f.v["PO"] != "000" {
+			return "RM5" + f.v["PO"] + ";" // transmitting
+		}
+		if f.sweepPO {
+			return "RM5027;" // 5 W
+		}
+		return "RM5000;"
 	case "SV":
 		f.v["FA"], f.v["FB"] = f.v["FB"], f.v["FA"]
 		return ""
@@ -223,6 +235,9 @@ func TestRigPanelSaysWhenTheRigIsKenwood(t *testing.T) {
 func TestSWRSweepOnTheKeyLine(t *testing.T) {
 	t.Setenv("CWMAC_TEST", "1")
 	e, f := testEngine710(t)
+	f.mu.Lock()
+	f.sweepPO = true
+	f.mu.Unlock()
 	if err := e.startSweep(sweepRequest{Band: "30m", StepHz: 10_000}); err == nil {
 		t.Fatal("a sweep without Transmit enabled should be refused")
 	}

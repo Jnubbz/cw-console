@@ -213,7 +213,7 @@ func IsQuery(cmd string) bool {
 		MeterALC, MeterPO, MeterSWR:
 		return true
 	}
-	return false
+	return isControlQuery(cmd)
 }
 
 // State: what the rig panel shows.

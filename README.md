@@ -36,6 +36,10 @@ and A/B over-the-air updates. The box's Buildroot tree isn't in this repository 
       mode, clarifier RX/TX and offset, power, tuner
 - [x] SWR sweep: short 5-10 W CW carriers across a band on the key line, the radio's SWR
       meter read over CAT at each step, plotted; the radio is put back exactly as it was
+- [x] CW controls: break-in (on/off, semi/full, delay) next to Transmit; live S-meter, and
+      power / ALC / SWR while transmitting; CW width, APF, IF shift; auto and manual notch;
+      one speed and one pitch (the app's WPM to the radio's keyer, the Pitch slider to its CW
+      pitch and sidetone); Zero in; power remembered per band (home and POTA separately)
 - [ ] The Rig sheet on Windows (the Windows app is a native window; needs its own panel)
 - [ ] Bring the Windows and Mac apps up to the Pi box's features from one codebase
       (band switching over CAT, radio profiles, activation count, FT8 where it fits)
@@ -117,6 +121,26 @@ turn on Transmit first. It sends a 250 ms carrier at 5 or 10 W per step, in CW (
 everywhere in every US HF band), and reads the SWR meter. Esc or Stop ends it; the radio's
 frequency, mode, power, split, clarifier and break-in are always put back. Only sweep where
 your license lets you transmit, and listen first.
+
+### CW controls (FT-710)
+
+- **BK-IN** next to Transmit, with Semi/Full and the delay. CW on the key line only plays the
+  sidetone with break-in off, so the app says so (click the warning to turn it on).
+- **Meter** in the Radio panel: S-meter on receive; power, ALC and SWR while transmitting
+  (for FT8, set the audio level so ALC barely moves).
+- **Width** 250-600 Hz, **APF**, **Notch** (auto) and IF shift in the Radio panel; the Rig
+  sheet has every width, the IF shift slider and the manual notch.
+- **One speed and one pitch** (Setup > Radio): the send speed (Match speed too) goes to the
+  radio's keyer, and moving the Pitch slider sets the radio's CW pitch and sidetone, like
+  its PITCH knob. A waterfall click only moves the decoder.
+- **Zero in** (next to Auto tune) then moves the dial so that station sounds at the radio's
+  pitch, centered in its filters at your sidetone's tone, and puts the decoder there. CW
+  only, never while sending.
+- **Power per band** (Setup > Radio): each band keeps the power last used on it, home and
+  POTA separately, set when the radio changes band (a band key at once, the radio's own
+  band change within a few seconds).
+
+Commands come from Yaesu's FT-710 CAT manual and Hamlib's FT-710 support.
 
 ## Contesting (CQ WW DX CW)
 

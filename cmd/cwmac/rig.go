@@ -199,7 +199,13 @@ func (c catSpec) modeName(mode string) string {
 type rigCtl struct{ mu sync.Mutex }
 
 // do sends CAT commands in order; queries (no parameters, like "FA;") return the answer.
-func (r *rigCtl) do(c catSpec, cmds ...string) ([]string, error) {
+func (r *rigCtl) do(c catSpec, cmds ...string) ([]string, error) { return r.run(c, false, cmds) }
+
+// doLenient: like do, but a query the rig rejects ("?;") answers "?;" instead of failing
+// the rest (reading settings a firmware may not have).
+func (r *rigCtl) doLenient(c catSpec, cmds ...string) ([]string, error) { return r.run(c, true, cmds) }
+
+func (r *rigCtl) run(c catSpec, lenient bool, cmds []string) ([]string, error) {
 	if c.Port == "" {
 		return nil, errors.New("no CAT port (pick the radio's key port in Setup; on a Yaesu it must be its USB serial port)")
 	}
@@ -217,6 +223,9 @@ func (r *rigCtl) do(c catSpec, cmds ...string) ([]string, error) {
 		}
 		if isCATQuery(cmd) {
 			a, err := conn.readReply()
+			if err != nil && lenient && strings.Contains(err.Error(), "rejected") {
+				a, err = "?;", nil
+			}
 			if err != nil {
 				return out, fmt.Errorf("the rig didn't answer %s over CAT (check its CAT rate is %d): %v", cmd, c.Baud, err)
 			}

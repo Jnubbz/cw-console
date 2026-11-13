@@ -470,6 +470,7 @@ func (s *server) routes() *http.ServeMux {
 	}
 	s.spotRoutes(m)
 	m.HandleFunc("/api/rig", s.guard(func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.e.rigState()) }))
+	m.HandleFunc("/api/rig/meters", s.guard(func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.e.meters()) }))
 	m.HandleFunc("/api/rig/do", s.guard(func(w http.ResponseWriter, r *http.Request) {
 		var q rigAction
 		if readJSON(r, &q) != nil {
