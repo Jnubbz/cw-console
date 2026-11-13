@@ -28,7 +28,9 @@ jobs:
         if: runner.os != 'Windows'
         run: go test -timeout 20m ./...
       - name: Keyer timing (alone, so nothing else competes for the CPU)
-        if: runner.os != 'Windows'
+        # Linux only: GitHub's virtual Macs stall now and then for tens of ms, which says
+        # nothing about the keyer (real Macs time it fine: run it there with go test).
+        if: runner.os == 'Linux'
         run: CW_TIMING=1 go test -count=1 -run KeyerTiming ./cw
       - name: Test shared packages and build the Windows app
         if: runner.os == 'Windows'
