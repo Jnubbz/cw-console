@@ -377,3 +377,15 @@ func TestTailEnderAfterTU(t *testing.T) {
 		t.Fatalf("want a reply to W4XYZ and no CQ: sent=%v notes=%v", s.sent, s.notes)
 	}
 }
+
+func TestADIFContestFields(t *testing.T) {
+	q := QSO{Call: "DL1ABC", Start: time.Date(2026, 11, 28, 0, 1, 2, 0, time.UTC), Band: "20m", Freq: "14.025",
+		RSTSent: "599", RSTRcvd: "599", MyCall: "KN0BLE", Mode: "CW", Contest: "CQ-WW-CW", CQZ: 14, MyCQZ: 5}
+	got := ParseADIF(Record(q))
+	if len(got) != 1 || got[0] != q {
+		t.Fatalf("round trip: %+v", got)
+	}
+	if r := Record(QSO{Call: "W1AW", Start: q.Start}); strings.Contains(r, "CQZ") || strings.Contains(r, "CONTEST_ID") {
+		t.Fatalf("a regular contact shouldn't get contest fields: %s", r)
+	}
+}

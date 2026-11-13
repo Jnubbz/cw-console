@@ -17,6 +17,9 @@ CW Console is licensed under the **GNU Affero General Public License v3.0** (see
   (`rig/ft710/`) were checked against Hamlib's FT-710 driver (`rigs/yaesu/newcat.c`,
   `ft710.h`; SWR calibration by G3VPX, power calibration from FLRig by W1HKJ). No Hamlib
   code is included. <https://github.com/Hamlib/Hamlib> — LGPL-2.1.
+- **cty.dat** by Jim Reisert AD1C — the country and CQ zone file (`contest/cty.dat`, the
+  2020-04-05 edition as distributed with Tlf, <https://github.com/Tlf/tlf>). Current
+  editions: <https://www.country-files.com>.
 - **IBM Plex** fonts (`cmd/cwmac/web/fonts/`) — SIL Open Font License 1.1
   (`OFL-IBM-Plex.txt` in that folder).
 - "Parks on the Air" and POTA are trademarks of Parks on the Air, Inc. This project is

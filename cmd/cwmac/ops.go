@@ -89,6 +89,9 @@ func (e *Engine) logLocked(call string) error {
 	if call == "" {
 		return errString("nothing to log: the Call box is empty")
 	}
+	if e.st.Contest != "" {
+		return e.logContestLocked(call)
+	}
 	now := time.Now()
 	freq, band := ops.ParseFreq(e.st.Freq)
 	ctx := e.tx.ctx

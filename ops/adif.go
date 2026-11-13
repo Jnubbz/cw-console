@@ -25,6 +25,9 @@ type QSO struct {
 	MyGrid  string
 	Mode    string // "CW" (default when empty) or "FT8"
 	Grid    string // their grid square, when known (FT8)
+	Contest string // ADIF CONTEST_ID ("CQ-WW-CW"), "" for a regular contact
+	CQZ     int    // their CQ zone (the contest exchange), 0 unknown
+	MyCQZ   int    // the zone sent
 }
 
 func modeOf(q QSO) string {
@@ -283,6 +286,13 @@ func Record(q QSO) string {
 	}
 	f("MY_STATE", q.MyState)
 	f("MY_GRIDSQUARE", q.MyGrid)
+	f("CONTEST_ID", q.Contest)
+	if q.CQZ > 0 {
+		f("CQZ", strconv.Itoa(q.CQZ))
+	}
+	if q.MyCQZ > 0 {
+		f("MY_CQ_ZONE", strconv.Itoa(q.MyCQZ))
+	}
 	b.WriteString("<EOR>\n")
 	return b.String()
 }
@@ -331,8 +341,20 @@ func fromFields(m map[string]string) QSO {
 	return QSO{Call: m["CALL"], Start: t, Freq: m["FREQ"], Band: strings.ToLower(m["BAND"]),
 		RSTSent: m["RST_SENT"], RSTRcvd: m["RST_RCVD"], MyCall: m["STATION_CALLSIGN"],
 		Park: m["MY_SIG_INFO"], MyState: m["MY_STATE"], MyGrid: m["MY_GRIDSQUARE"],
-		Mode: strings.ToUpper(m["MODE"]), Grid: m["GRIDSQUARE"]}
+		Mode: strings.ToUpper(m["MODE"]), Grid: m["GRIDSQUARE"], Contest: strings.ToUpper(m["CONTEST_ID"]),
+		CQZ: atoiOr0(m["CQZ"]), MyCQZ: atoiOr0(m["MY_CQ_ZONE"])}
 }
+
+func atoiOr0(s string) int {
+	n, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+// Entries: every contact in the log, oldest first (a copy).
+func (l *Logbook) Entries() []QSO { return append([]QSO(nil), l.entries...) }
 
 func padTime(t string) string {
 	for len(t) < 6 {

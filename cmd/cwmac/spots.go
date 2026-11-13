@@ -54,15 +54,16 @@ func (e *Engine) spotsUpLocked() {
 }
 
 type spotsReply struct {
-	Band   string        `json:"band"`
-	From   float64       `json:"fromKHz"`
-	To     float64       `json:"toKHz"`
-	Spots  []spots.Spot  `json:"spots"`
-	Heard  []spots.Heard `json:"heard"`
-	Status spots.Status  `json:"status"`
-	MyCall string        `json:"myCall"`
-	On     bool          `json:"on"`
-	Bands  []string      `json:"bands"`
+	Band   string            `json:"band"`
+	From   float64           `json:"fromKHz"`
+	To     float64           `json:"toKHz"`
+	Spots  []spots.Spot      `json:"spots"`
+	Heard  []spots.Heard     `json:"heard"`
+	Status spots.Status      `json:"status"`
+	MyCall string            `json:"myCall"`
+	On     bool              `json:"on"`
+	Bands  []string          `json:"bands"`
+	Marks  map[string]string `json:"marks,omitempty"` // contest mode: call -> "dupe" | "mult"
 }
 
 func (e *Engine) spotsFor(band string) spotsReply {
@@ -87,6 +88,13 @@ func (e *Engine) spotsFor(band string) spotsReply {
 	if r.Band != "" {
 		if s := st.Spots(r.From, r.To); len(s) > 0 {
 			r.Spots = s
+			calls := make([]string, len(s))
+			for i, sp := range s {
+				calls[i] = sp.Call
+			}
+			e.mu.Lock()
+			r.Marks = e.contestSpotMarksLocked(r.Band, calls)
+			e.mu.Unlock()
 		}
 	}
 	return r

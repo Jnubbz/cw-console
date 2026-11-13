@@ -72,6 +72,35 @@
   #modeseg { display: inline-flex; border: 1px solid var(--edge2); border-radius: 9px; padding: 2px; background: var(--well); }
   #modeseg button { border: 0; min-height: 30px; padding: 4px 16px; background: transparent; color: var(--dim); font-weight: 600; border-radius: 7px; }
   #modeseg button[aria-pressed=true] { background: var(--brass); color: #1c1606; }
+  /* contest mode */
+  body:not(.contest) .ctonly { display: none !important; }
+  #zone { width: 54px; text-align: center; font-family: var(--mono); font-size: 16px; }
+  #zone::placeholder { color: var(--faint); }
+  #zone.heard::placeholder { color: var(--green); }
+  #ctmode { display: inline-flex; border: 1px solid var(--edge2); border-radius: 9px; padding: 2px; background: var(--well); }
+  #ctmode button { border: 0; min-height: 28px; padding: 3px 14px; background: transparent; color: var(--dim); font-weight: 600; border-radius: 7px; }
+  #ctmode button[aria-pressed=true] { background: var(--brass); color: #06121f; }
+  #ctinfo { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 0; }
+  #ctinfo .ctry { color: var(--text); }
+  #ctinfo .chip { font-size: 12px; font-weight: 700; padding: 2px 7px; border-radius: 6px; letter-spacing: .02em; }
+  #ctinfo .chip.mult { background: rgba(95,211,141,.16); color: var(--green); border: 1px solid rgba(95,211,141,.4); }
+  #ctinfo .chip.dupe { background: rgba(229,72,77,.16); color: #ff8a80; border: 1px solid rgba(229,72,77,.4); }
+  #ctinfo .chip.warn { background: rgba(226,174,74,.16); color: #e2ae4a; border: 1px solid rgba(226,174,74,.4); }
+  #cthint { font-family: var(--mono); font-size: 12px; }
+  #qContest table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
+  #qContest th { color: var(--faint); font-weight: 500; text-align: right; padding: 2px 4px; font-size: 11px; }
+  #qContest td { text-align: right; padding: 2px 4px; color: var(--dim); }
+  #qContest td:first-child, #qContest th:first-child { text-align: left; }
+  #qContest tr.tot td { color: var(--text); border-top: 1px solid var(--edge); font-weight: 600; }
+  #qContest tr.cur td { color: var(--text); }
+  #ctScore { font-family: var(--mono); font-size: 18px; color: var(--brass); letter-spacing: 0; text-transform: none; }
+  #ctRate { font-size: 12px; margin-top: 6px; }
+  #ctPractice { font-size: 12px; color: #e2ae4a; margin-bottom: 6px; }
+  #ctRecent { font-family: var(--mono); font-size: 12px; margin-top: 8px; display: grid; grid-template-columns: auto 1fr auto auto; gap: 1px 8px; color: var(--dim); }
+  #ctRecent .m { color: var(--green); }
+  #ctRecent .d { color: #ff8a80; }
+  #qList .it.dupe { opacity: .4; }
+  #qList .it.mult .c { color: var(--green); }
   #utc { font: 600 14px var(--mono); color: var(--dim); font-variant-numeric: tabular-nums; }
   #setupbtn, #boxbtn { padding-inline: 12px; }
   #radioname { font-weight: 600; color: var(--brass); }
@@ -381,9 +410,13 @@
   <div id="strip"><span id="lamp">off</span><span id="sent"><span></span></span><span id="queue"></span><span id="hint"></span></div>
   <div class="row">
     <label class="arm"><input id="txon" type="checkbox"> Transmit</label>
-    <input id="call" type="text" maxlength="12" autocomplete="off" spellcheck="false" placeholder="Call" aria-label="Call"><span id="dupe" title="Already worked on this band today" style="color:#ff8a80;font-weight:600;display:none">DUPE</span>
+    <input id="call" type="text" maxlength="12" autocomplete="off" spellcheck="false" placeholder="Call" aria-label="Call"><input id="zone" class="ctonly" type="text" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="Zn" aria-label="Their CQ zone" title="Their CQ zone, from the exchange. Left empty: the zone the decoder heard (green) or cty.dat's guess (grey) is logged"><span id="dupe" title="Already worked on this band today" style="color:#ff8a80;font-weight:600;display:none">DUPE</span>
     <input id="txin" type="text" autocomplete="off" spellcheck="false" placeholder="Type here to send">
     <button id="stop" class="danger" title="Stop sending (Esc)">Stop</button>
+  </div>
+  <div class="row ctonly" id="ctrow">
+    <span id="ctmode" role="group" aria-label="Contest operating"><button data-sp="0" aria-pressed="true" title="Running: you call CQ. Enter sends CQ, then the exchange, then TU (and logs)">Run</button><button data-sp="1" aria-pressed="false" title="Search and pounce: you call them. Enter sends your call, then TU and the exchange (and logs)">S&amp;P</button></span>
+    <span id="ctinfo"></span><span class="spacer"></span><span id="cthint" class="dim"></span>
   </div>
   <div id="macros"></div>
   <div class="row">
@@ -427,6 +460,14 @@
     <div class="row" title="RF gain (the radio's RF/SQL knob). Turned well down, weak signals never reach the decoder."><label for="qRf" style="min-width:auto">RF</label><input id="qRf" type="range" min="0" max="100" step="1" style="flex:1;min-width:0"><span class="val" id="qRfv" style="min-width:44px;text-align:right"></span></div>
     <div class="row" title="AF gain: the radio's volume knob"><label for="qAf" style="min-width:auto">AF</label><input id="qAf" type="range" min="0" max="100" step="1" style="flex:1;min-width:0"><span class="val" id="qAfv" style="min-width:44px;text-align:right"></span></div>
     <div id="qMsg"></div>
+  </div>
+  <div class="sp ctonly" id="qContest">
+    <h3>CQ WW <span class="spacer"></span><span id="ctScore" title="Points x (zones + countries)">0</span></h3>
+    <div id="ctPractice" hidden></div>
+    <table><thead><tr><th>Band</th><th>QSO</th><th>Pts</th><th>Zn</th><th>Cty</th></tr></thead><tbody id="ctBody"></tbody></table>
+    <div id="ctRate" class="dim"></div>
+    <div id="ctRecent"></div>
+    <div class="row" style="margin-top:8px"><button id="ctCab" title="Writes the Cabrillo log CQ WW wants into the Logs folder (upload it at cqww.com/logcheck within 48 hours of the end)">Save Cabrillo</button></div>
   </div>
   <div class="sp" id="qDecoder">
     <h3>Decoder</h3>
@@ -493,6 +534,18 @@
     <h3>Operating</h3>
     <div class="row"><label title="Shows the park and activation count bar, and writes the POTA uploader's log file. Off: a home station."><input id="potamode" type="checkbox"> POTA activation mode (park, activation count)</label></div>
     <div class="row"><label title="Reverse Beacon Network skimmer spots and POTA activators on the current band, under the spectrum. RBN logs in with MYCALL from the macros."><input id="spotson" type="checkbox"> Spots: RBN and POTA band strip</label></div>
+    <div class="row"><label for="contest">Contest</label><select id="contest"><option value="">Off</option><option value="cqww">CQ WW DX (CW)</option></select>
+      <span class="dim ctonly" id="ctdates"></span></div>
+    <div class="ctonly">
+      <div class="row"><label for="ctzone" title="The CQ zone you send (Florida and the US east coast: 5). Empty: cty.dat's zone for your call">My zone</label><input id="ctzone" type="number" min="1" max="40" step="1" style="width:64px">
+        <label for="ctloc" title="Cabrillo LOCATION: your state for a US station (FL), DX elsewhere. Empty: MYSTATE from the macros">Location</label><input id="ctloc" type="text" maxlength="6" style="width:64px;text-transform:uppercase">
+        <label for="ctpwr">Power</label><select id="ctpwr"><option value="LOW">Low (100 W)</option><option value="HIGH">High (1500 W)</option><option value="QRP">QRP (5 W)</option></select></div>
+      <div class="row"><label title="CQ WW counts a CW decoder, RBN and spotting as QSO finding assistance. With them on, you enter Single Operator Assisted; untick only if you copy by ear and don't use the spots."><input id="ctassist" type="checkbox"> Assisted (decoder and spots in use)</label></div>
+      <div class="row"><label for="ctname">Name</label><input id="ctname" type="text" maxlength="60" style="flex:1;min-width:0" placeholder="for the Cabrillo log (optional)">
+        <label for="ctemail">Email</label><input id="ctemail" type="text" maxlength="80" style="flex:1;min-width:0" placeholder="optional"></div>
+      <div class="row"><button id="ctmacros" title="The F-keys in Contest mode (contest-macros.txt)">Edit contest macros</button><button id="ctnew" title="The score starts again from now. (Contacts stay in your regular log, and when the contest starts at 0000Z the log starts fresh by itself.)">Start a new contest log</button><button id="ctcab2">Save Cabrillo</button></div>
+      <div class="row dim" id="ctcty" style="font-size:12px"></div>
+    </div>
   </section>
   <section id="setupdate">
     <h3>Updates</h3>
@@ -700,6 +753,7 @@ function applyState(st) {
   document.body.classList.toggle("ft8mode", s.mode === "ft8");
   if (st.wf) cwfPush(st.wf);
   renderLevel(st);
+  renderContest(st);
   if (!recent("pitch")) $("pitch").value = s.pitch;
   $("pitchv").textContent = Math.round(s.pitch) + " Hz";
   if (!recent("sens")) $("sens").value = Math.round(s.sensitivity * 100);
@@ -1037,6 +1091,9 @@ document.addEventListener("keydown", (e) => {
   if (f && !e.metaKey && !e.ctrlKey) { e.preventDefault(); sendMacro(+f[1] - 1); return; }
   const d = /^Digit([1-8])$/.exec(e.code);
   if (d && e.altKey && !e.metaKey && !e.ctrlKey) { e.preventDefault(); sendMacro(+d[1] - 1); return; }
+  const inCt = S && S.contest && (document.activeElement === $("call") || document.activeElement === $("zone"));
+  if (inCt && e.key === "Enter") { e.preventDefault(); contestEnter(); return; }
+  if (inCt && e.key === " " && document.activeElement === $("call")) { e.preventDefault(); $("zone").focus(); $("zone").select(); return; }
   if (e.key === "Enter" && document.activeElement === $("call")) { e.preventDefault(); txin.focus(); }
 });
 
@@ -1115,7 +1172,9 @@ function applyOps(st) {
   $("band").textContent = st.band || ($("freq").value ? "?" : "");
   // Call box: the app sets it after an auto-reply or a logged contact
   if (st.callSeq !== lastCallSeq) {
-    if (lastCallSeq !== -1 || !$("call").value) $("call").value = st.call;
+    // The app cleared it after logging: keep anything typed since (the next call, at contest speed).
+    const typedSince = !st.call && callTypedAt > logSentAt;
+    if ((lastCallSeq !== -1 || !$("call").value) && !typedSince) $("call").value = st.call;
     lastCallSeq = st.callSeq;
   }
   $("call").classList.toggle("dupe", !!st.dupe);
@@ -1134,8 +1193,10 @@ function applyOps(st) {
 }
 function pickCall(c) { $("call").value = c; postCall(); txin.focus(); }
 let callTimer = 0;
-function postCall() { clearTimeout(callTimer); callTimer = setTimeout(() => api("/api/call", { call: $("call").value }), 150); }
-$("call").addEventListener("input", postCall);
+let callTypedAt = 0, logSentAt = 0;
+function callBody() { return { call: $("call").value, zone: parseInt($("zone").value, 10) || 0 }; }
+function postCall() { clearTimeout(callTimer); callTimer = setTimeout(() => api("/api/call", callBody()), 150); }
+$("call").addEventListener("input", () => { callTypedAt = Date.now(); postCall(); });
 const opsSetting = (k, v) => { touched[k] = Date.now(); setting({ ops: { [k]: v } }); };
 $("cqmacro").onchange = () => { touched.cqmacro = Date.now(); setting({ ops: { cqMacro: +$("cqmacro").value } }); };
 $("replymacro").onchange = () => { touched.replymacro = Date.now(); setting({ ops: { replyMacro: +$("replymacro").value } }); };
@@ -1167,7 +1228,19 @@ $("autocq").onchange = async () => {
   const r = await api("/api/autocq", { on: $("autocq").checked });
   if (r.error) { $("autocq").checked = false; note(r.error); }
 };
-$("logbtn").onclick = async () => { const r = await api("/api/log", { call: $("call").value }); if (r.error) note(r.error); };
+$("logbtn").onclick = async () => {
+  logSentAt = Date.now();
+  const body = callBody(); // as it is now: keys typed meanwhile are the next call
+  if (S && S.contest) { clearTimeout(callTimer); await api("/api/call", body); } // the Zone box goes with it
+  const r = await api("/api/log", { call: body.call });
+  if (r.error) note(r.error); else clearAfterLog();
+};
+// After a log: empty the Call and Zone boxes now (the app's own clear follows), unless
+// the next call is already being typed.
+function clearAfterLog() {
+  if (callTypedAt > logSentAt) return;
+  $("call").value = ""; $("zone").value = ""; $("call").focus();
+}
 $("undo").onclick = async () => { const r = await api("/api/log/undo", ""); if (r.error) note(r.error); };
 $("logdir").onclick = () => {
   if (!(S && S.appliance)) { api("/api/log/open", ""); return; }
@@ -1664,9 +1737,18 @@ $("poweroff").onclick = async () => {
 };
 
 // macros editor
-$("editmacros").onclick = async () => { $("macroText").value = await api("/api/macros", undefined, { text: true }); $("macroModal").classList.add("open"); $("macroText").focus(); };
+let macroSet = ""; // "" the everyday macros | "contest"
+async function openMacros(set) {
+  macroSet = set;
+  $("macroText").value = await api("/api/macros" + (set ? "?set=" + set : ""), undefined, { text: true });
+  $("macroModal").classList.add("open"); $("macroText").focus();
+}
+$("editmacros").onclick = () => openMacros(S && S.contest ? "contest" : ""); // the F-keys in use
 $("macroCancel").onclick = () => $("macroModal").classList.remove("open");
-$("macroSave").onclick = async () => { await api("/api/macros", $("macroText").value); $("macroModal").classList.remove("open"); note("Macros saved."); };
+$("macroSave").onclick = async () => {
+  await api("/api/macros" + (macroSet ? "?set=" + macroSet : ""), $("macroText").value);
+  $("macroModal").classList.remove("open"); note(macroSet ? "Contest macros saved." : "Macros saved.");
+};
 
 // ---------- go ----------
 api("/api/clock", { now: Date.now() }).catch(() => {}); // the Pi box sets its clock from this
@@ -1967,14 +2049,15 @@ function stripDraw() {
   const sorted = [...STRIP.spots].sort((a, b) => a.khz - b.khz);
   for (const s of sorted) {
     const px = x(s.khz), pota = s.source === "pota";
-    const strong = Math.max(0.25, Math.min(1, (s.snr || 10) / 30));
-    g.strokeStyle = pota ? col("--pota") : col("--brass"); g.globalAlpha = pota ? 1 : strong;
+    const mark = STRIP.data && STRIP.data.marks ? STRIP.data.marks[s.call] : ""; // contest: dupe / new multiplier
+    const strong = mark === "dupe" ? 0.2 : Math.max(0.25, Math.min(1, (s.snr || 10) / 30));
+    g.strokeStyle = mark === "mult" ? col("--green") : pota ? col("--pota") : col("--brass"); g.globalAlpha = pota && mark !== "dupe" ? 1 : strong;
     g.lineWidth = pota ? 3 : 2;
     g.beginPath(); g.moveTo(px, h - 14); g.lineTo(px, 4); g.stroke(); g.globalAlpha = 1;
     const label = (pota ? "P " : "") + s.call, lw = g.measureText(label).width;
     let row = px - last[0] > lw + 6 ? 0 : px - last[1] > lw + 6 ? 1 : -1;
     if (row >= 0) {
-      g.fillStyle = pota ? col("--pota") : col("--text");
+      g.fillStyle = mark === "mult" ? col("--green") : mark === "dupe" ? col("--faint") : pota ? col("--pota") : col("--text");
       g.fillText(label, Math.min(px + 3, w - lw), rows[row]);
       last[row] = px;
     }
@@ -2117,6 +2200,91 @@ function renderLevel(st) {
 }
 
 // who's on the band: POTA activators first, then RBN by strength; click to work
+// ---- contest mode (CQ WW): zone, dupes and multipliers as you type, Enter sends message, score ----
+let ctZoneSeq = -1;
+async function contestEnter() {
+  if (!S || !S.txOn) { note("Tick “Transmit” first (the key port and line are in Setup)."); return; }
+  clearTimeout(callTimer);
+  logSentAt = Date.now();
+  const r = await api("/api/contest/enter", callBody());
+  if (r && r.error) note(r.error);
+  else if (r && r.logged) clearAfterLog();
+}
+for (const b of $("ctmode").querySelectorAll("button")) b.onclick = () => {
+  touched.ctmode = Date.now(); setting({ contestSP: b.dataset.sp === "1" });
+  for (const o of $("ctmode").children) o.setAttribute("aria-pressed", String(o === b));
+  $("call").focus();
+};
+$("zone").addEventListener("input", () => { callTypedAt = Date.now(); $("zone").value = $("zone").value.replace(/\D/g, ""); postCall(); });
+const fmtUTC = (u) => new Date(u * 1000).toISOString().slice(0, 16).replace("T", " ") + "Z";
+function renderContest(st) {
+  const s = st.settings, c = st.contest;
+  document.body.classList.toggle("contest", !!c);
+  if (!recent("contest")) $("contest").value = s.contest || "";
+  if (!recent("ctzone")) $("ctzone").value = s.contestZone || "";
+  if (!recent("ctloc")) $("ctloc").value = s.contestLocation || "";
+  if (!recent("ctpwr")) $("ctpwr").value = s.contestPower || "LOW";
+  if (!recent("ctassist")) $("ctassist").checked = !!s.contestAssisted;
+  if (!recent("ctname")) $("ctname").value = s.contestName || "";
+  if (!recent("ctemail")) $("ctemail").value = s.contestEmail || "";
+  if (!c) return;
+  $("ctzone").placeholder = c.myZone || "";
+  $("ctloc").placeholder = c.location;
+  $("ctdates").textContent = `${fmtUTC(c.start)} to ${fmtUTC(c.end)}`;
+  $("ctcty").textContent = `Country file ${c.cty}. A newer cty.dat (country-files.com) in the data folder is used instead.`;
+  if (!recent("ctmode")) for (const o of $("ctmode").children) o.setAttribute("aria-pressed", String((o.dataset.sp === "1") === !!c.sp));
+  if (c.zoneSeq !== ctZoneSeq) { if (ctZoneSeq !== -1 && !(callTypedAt > logSentAt)) $("zone").value = ""; ctZoneSeq = c.zoneSeq; } // the app logged it
+  const z = $("zone"), call = $("call").value.trim();
+  z.placeholder = call && c.zone ? String(c.zone) : "Zn";
+  z.classList.toggle("heard", c.zoneFrom === "heard");
+  z.title = c.zoneFrom === "heard" ? "Heard from the decoder: logged unless you type another" : c.zoneFrom === "guess" ? "cty.dat's zone for this call: logged unless you type the one they send" : "Their CQ zone";
+  // what this call is worth
+  const k = c.check, info = $("ctinfo"); info.replaceChildren();
+  const chip = (cls, t, title) => { const e = document.createElement("span"); e.className = "chip " + cls; e.textContent = t; if (title) e.title = title; info.appendChild(e); };
+  if (call && k.call) {
+    const t = document.createElement("span"); t.className = "ctry";
+    t.textContent = k.country ? `${k.country} · ${k.cont}` : k.mm ? "Maritime mobile" : "Unknown prefix"; info.appendChild(t);
+    if (k.offBand) chip("warn", "NOT A CQ WW BAND", "160, 80, 40, 20, 15 and 10 m only");
+    else if (k.dupe) chip("dupe", "DUPE", "Already in the log on this band (working them again costs nothing, but scores nothing)");
+    else {
+      const p = document.createElement("span"); p.className = "dim"; p.textContent = k.points + (k.points === 1 ? " pt" : " pts"); info.appendChild(p);
+      if (k.newZone) chip("mult", "NEW ZONE " + (c.zone || ""), "Zone multiplier on this band");
+      if (k.newCountry) chip("mult", "NEW COUNTRY", "Country multiplier on this band");
+    }
+    if (k.workedOn && k.workedOn.length && !k.dupe) { const w = document.createElement("span"); w.className = "dim"; w.textContent = "worked on " + k.workedOn.join(", "); info.appendChild(w); }
+  }
+  const hz = !!c.zone;
+  $("cthint").textContent = !c.sp
+    ? (!call ? "Enter: CQ" : !c.sent ? "Enter: exchange" : hz ? "Enter: TU + log" : "Enter: AGN")
+    : (!call ? "Type their call" : !c.sent ? "Enter: my call" : hz ? "Enter: TU + exch + log" : "Enter: my call again");
+  // score
+  const sm = c.summary;
+  $("ctScore").textContent = sm.score.toLocaleString();
+  const band = st.band, rows = sm.bands.filter((r) => r.qsos || r.dupes || r.band === band);
+  $("ctBody").replaceChildren(...[...rows, sm.total].map((r) => {
+    const tr = document.createElement("tr"); if (r === sm.total) tr.className = "tot"; else if (r.band === band) tr.className = "cur";
+    for (const v of [r.band.replace("m", r === sm.total ? "" : " m"), r.qsos, r.points, r.zones, r.countries]) { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); }
+    return tr;
+  }));
+  $("ctRate").textContent = `Rate ${sm.rate10}/h (last 10) · ${sm.last60} in the last hour` + (sm.total.dupes ? ` · ${sm.total.dupes} dupes` : "") + (sm.offBand ? ` · ${sm.offBand} off-band` : "");
+  $("ctPractice").hidden = !c.practice;
+  if (c.practice) $("ctPractice").textContent = Date.now() / 1000 < c.start ? `Practice: CQ WW starts ${fmtUTC(c.start)} (the log starts fresh then)` : "CQ WW is over: Save Cabrillo and upload it at cqww.com/logcheck";
+  $("ctRecent").replaceChildren(...c.recent.flatMap((r) => {
+    const cl = r.dupe ? "d" : r.mult ? "m" : "";
+    return [r.time, r.call, r.band, r.dupe ? "dupe" : (r.mult ? "★ " : "") + r.points].map((v) => { const e = document.createElement("span"); e.textContent = v; if (cl) e.className = cl; return e; });
+  }));
+}
+$("contest").onchange = () => { touched.contest = Date.now(); setting({ contest: $("contest").value }); };
+$("ctzone").onchange = () => { touched.ctzone = Date.now(); setting({ contestZone: parseInt($("ctzone").value, 10) || 0 }); };
+$("ctloc").onchange = () => { touched.ctloc = Date.now(); setting({ contestLocation: $("ctloc").value.trim().toUpperCase() }); };
+$("ctpwr").onchange = () => { touched.ctpwr = Date.now(); setting({ contestPower: $("ctpwr").value }); };
+$("ctassist").onchange = () => { touched.ctassist = Date.now(); setting({ contestAssisted: $("ctassist").checked }); };
+$("ctname").onchange = () => { touched.ctname = Date.now(); setting({ contestName: $("ctname").value.trim() }); };
+$("ctemail").onchange = () => { touched.ctemail = Date.now(); setting({ contestEmail: $("ctemail").value.trim() }); };
+$("ctmacros").onclick = () => openMacros("contest");
+$("ctnew").onclick = async () => { if (confirm("Start a new contest log? The score starts again from now. (Every contact stays in your regular log.)")) await api("/api/contest/new", ""); };
+$("ctCab").onclick = $("ctcab2").onclick = async () => { const r = await api("/api/contest/cabrillo", ""); if (r && r.error) note(r.error); };
+
 function qSpots() {
   const d = STRIP.data, list = $("qList");
   if (!d || !d.on) { list.innerHTML = '<div class="empty">Spots are off (Setup &gt; Operating)</div>'; $("qSpotsN").textContent = ""; return; }
@@ -2124,7 +2292,8 @@ function qSpots() {
   $("qSpotsN").textContent = d.band ? `${d.band} · ${sp.length}` : "";
   if (!sp.length) { list.innerHTML = '<div class="empty">Nobody spotted on this band in the last 15 minutes</div>'; return; }
   list.replaceChildren(...sp.slice(0, 40).map((x) => {
-    const it = document.createElement("div"); it.className = "it" + (x.source === "pota" ? " pota" : "");
+    const mk = d.marks ? d.marks[x.call] || "" : "";
+    const it = document.createElement("div"); it.className = "it" + (x.source === "pota" ? " pota" : "") + (mk ? " " + mk : "");
     const c = document.createElement("span"); c.className = "c"; c.textContent = x.call;
     const d2 = document.createElement("span"); d2.className = "d";
     d2.textContent = x.park ? `${x.park} ${x.parkName || ""}` : `${x.snr} dB${x.wpm ? " · " + x.wpm + " wpm" : ""}${x.skimmers > 1 ? " · " + x.skimmers + " skimmers" : ""}`;
