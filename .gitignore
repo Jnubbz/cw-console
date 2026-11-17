@@ -3,3 +3,7 @@ dist/
 /cw-decoder
 .DS_Store
 *.test
+
+# Operator credentials. Never commit these. See docs/unified/PLAN.md.
+secrets.json
+*.secrets.json

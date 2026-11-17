@@ -30,8 +30,10 @@ jobs:
       - name: Keyer timing (alone, so nothing else competes for the CPU)
         # Linux only: GitHub's virtual Macs stall now and then for tens of ms, which says
         # nothing about the keyer (real Macs time it fine: run it there with go test).
+        # KeyerOutputDecodes is here too: it rebuilds audio from those same timestamps,
+        # and a shortened dah decodes a 0 as a 1.
         if: runner.os == 'Linux'
-        run: CW_TIMING=1 go test -count=1 -run KeyerTiming ./cw
+        run: CW_TIMING=1 go test -count=1 -run 'KeyerTiming|KeyerOutputDecodes' ./cw
       - name: Test shared packages and build the Windows app
         if: runner.os == 'Windows'
         run: |

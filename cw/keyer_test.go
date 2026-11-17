@@ -156,7 +156,13 @@ func TestKeyerTimingAt20And30WPM(t *testing.T) {
 }
 
 // The keyer's own output, rendered as a tone, must decode back to the text.
+// The tone is built from wall-clock key events, so a stall that shortens a dah
+// into a dit changes the copy (a 0 becomes a 1). Same CI rule as the timing
+// test: GitHub's virtual Macs stall while the AI decoder is using every core.
 func TestKeyerOutputDecodes(t *testing.T) {
+	if os.Getenv("CI") != "" && os.Getenv("CW_TIMING") == "" {
+		t.Skip("timed alone in CI (CW_TIMING=1)")
+	}
 	line := &fakeLine{}
 	k := NewKeyer(line, 22, nil)
 	text := "CQ POTA DE KN0BLE K"
