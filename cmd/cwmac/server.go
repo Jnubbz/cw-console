@@ -259,6 +259,25 @@ func (s *server) routes() *http.ServeMux {
 		w.WriteHeader(204)
 	}))
 
+	m.HandleFunc("/api/qrz", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			writeJSON(w, s.e.qrzFlags())
+			return
+		}
+		var q struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+		}
+		if err := readJSON(r, &q); err != nil {
+			http.Error(w, "bad json", 400)
+			return
+		}
+		if err := s.e.saveQRZ(q.Username, q.Password); err != nil {
+			writeJSON(w, map[string]string{"error": "couldn't save the QRZ login"})
+			return
+		}
+		writeJSON(w, s.e.qrzFlags())
+	}))
 	m.HandleFunc("/api/settings", s.guard(func(w http.ResponseWriter, r *http.Request) {
 		var raw json.RawMessage
 		if err := readJSON(r, &raw); err != nil {

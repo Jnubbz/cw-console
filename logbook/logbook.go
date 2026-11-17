@@ -113,7 +113,10 @@ func Format(q QSO) (string, error) {
 	field("GRIDSQUARE", q.Grid)
 	field("RST_SENT", q.RSTSent)
 	field("RST_RCVD", q.RSTRcvd)
-	field("STATION_CALLSIGN", strings.ToUpper(q.MyCall))
+	field("STATION_CALLSIGN", strings.ToUpper(strings.TrimSpace(q.MyCall)))
+	if op := BaseCall(q.MyCall); op != "" && ValidCall(op) {
+		field("OPERATOR", op)
+	}
 	field("NAME", q.Name)
 	field("STATE", strings.ToUpper(q.State))
 	if q.DXCC > 0 {

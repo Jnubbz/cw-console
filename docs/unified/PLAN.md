@@ -14,7 +14,7 @@ A fresh repository would throw away the update channel existing installs already
 
 sstv-console stays buildable on its own until the unified binary has an SSTV mode that has been used on the air. After that it is archived. Its signing key is not copied into this binary. An SSTV install updates by installing this app once, by hand, and then follows this repo's releases.
 
-The module path stays `github.com/Jnubbz/cw-console` through the migration. Renaming the module, the Mac app or the Pi hostname is a separate decision made after the modes share one process. The page stays on port 7373 (`cmd/cwmac`). SSTV's 7380 goes away when the mode moves here, so the Pi bookmark `http://potapi.local` does not change.
+The module path stays `github.com/Jnubbz/cw-console` through the migration. Renaming the module, the Mac app or the Pi hostname is a separate decision made after the modes share one process. The desktop page stays on port 7374 (`cmd/cwmac -port`, the default). The Pi appliance stays on port 80. SSTV's 7380 goes away when the mode moves here, so the Pi bookmark `http://potapi.local` does not change.
 
 ## What each tree is
 
@@ -24,7 +24,7 @@ Both are Go 1.24.7, standard library only, `CGO_ENABLED=0`, AGPL-3.0. Neither tr
 
 | Path | Role |
 |---|---|
-| `cmd/cwmac` | Mac app and the Pi field box. One `Engine` (`engine.go`). Web UI embedded from `web/index.html` plus fonts and images (`server.go`). Page token `X-CW-Token`. SSE on `/api/events`. Port 7373. `-appliance` turns on the box (Wi-Fi, page password, mDNS, GPIO key, WSJT-X `jt9`). |
+| `cmd/cwmac` | Mac app and the Pi field box. One `Engine` (`engine.go`). Web UI embedded from `web/index.html` plus fonts and images (`server.go`). Page token `X-CW-Token`. SSE on `/api/events`. Desktop default port 7374 (`-port`; an older build used 7373). `-appliance` listens on port 80 and turns on the box (Wi-Fi, page password, mDNS, GPIO key, WSJT-X `jt9`). |
 | `cmd/cw-decoder` | Windows native window. Its own serial, audio and updater files (`*_windows.go`). Not the same process as `cwmac`. |
 | `cmd/cwdecode-file` | Decode a WAV on the command line. |
 | `cw/` | Classic decoder (`DecodeCW`, `StreamDecoder`), Morse, `Keyer`, macros, `Waterfall`, WAV. |
@@ -168,7 +168,7 @@ One process. One serial owner. One capture stream. One ADIF file. Modes are engi
 
 ```mermaid
 flowchart TB
-  subgraph page [Browser page on 7373]
+  subgraph page [Browser page on 7374, Pi on 80]
     wf[Waterfall and spectrum]
     line[Decode line]
     meters["S-meter, ALC, power, SWR"]

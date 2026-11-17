@@ -378,6 +378,19 @@ func TestTailEnderAfterTU(t *testing.T) {
 	}
 }
 
+func TestAddRejectsACallThatIsNotACall(t *testing.T) {
+	dir := t.TempDir()
+	l := OpenLog(dir)
+	_, err := l.Add(QSO{Call: "W1AW<EOR>", Start: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)})
+	if err == nil {
+		t.Fatal("call containing <EOR> was logged")
+	}
+	b, _ := os.ReadFile(filepath.Join(dir, "cw-decoder-log.adi"))
+	if strings.Contains(string(b), "EOR>\n<") || strings.Contains(string(b), "<CALL:") {
+		t.Fatalf("rejected call was written: %s", b)
+	}
+}
+
 func TestADIFContestFields(t *testing.T) {
 	q := QSO{Call: "DL1ABC", Start: time.Date(2026, 11, 28, 0, 1, 2, 0, time.UTC), Band: "20m", Freq: "14.025",
 		RSTSent: "599", RSTRcvd: "599", MyCall: "KN0BLE", Mode: "CW", Contest: "CQ-WW-CW", CQZ: 14, MyCQZ: 5}

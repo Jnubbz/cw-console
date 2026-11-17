@@ -46,6 +46,25 @@ func TestOfflineFallsBackToStale(t *testing.T) {
 	}
 }
 
+func TestCacheRoundTripKeepsTheTimestamp(t *testing.T) {
+	at := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	c := &Cache{Now: func() time.Time { return at }}
+	c.Put(Card{Call: "w1aw", Country: "United States", State: "CT", DXCC: 291, CachedAt: at})
+	b, err := c.MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back Cache
+	back.Now = c.Now
+	if err := back.UnmarshalJSON(b); err != nil {
+		t.Fatal(err)
+	}
+	got, ok := back.Get("W1AW")
+	if !ok || got.State != "CT" || got.DXCC != 291 || !got.CachedAt.Equal(at) {
+		t.Fatalf("%+v %v", got, ok)
+	}
+}
+
 func TestNotFoundIsNotCached(t *testing.T) {
 	c := &Cache{}
 	s := &src{err: ErrNotFound}

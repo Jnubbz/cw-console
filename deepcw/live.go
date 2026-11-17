@@ -138,6 +138,8 @@ type Live struct {
 	stop         chan struct{}
 	resetPending bool
 	focus        *Focus
+	busy         bool  // a pass is running
+	covered      int64 // sample count (fed) the last finished pass had seen
 }
 
 // BreakSecs: a pause this long between characters starts a new line ("\n" in the text).
@@ -229,6 +231,30 @@ func (l *Live) TakeText() string {
 	return s
 }
 
+// CaughtUp reports whether the last finished pass has seen the audio Push has
+// fed, and no pass is running. The live test waits on this instead of treating
+// the first "decoding" status as done: that status is set at the end of a pass
+// which may still be behind the samples just pushed.
+func (l *Live) CaughtUp() bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.busy {
+		return false
+	}
+	if !l.enabled || l.rate == 0 {
+		return true
+	}
+	need := int64(WindowSecs * float64(l.rate))
+	if l.fed < need {
+		return true
+	}
+	hop := int64(l.rate) / 2
+	if hop < 1 {
+		hop = 1
+	}
+	return l.covered+hop >= l.fed
+}
+
 // Status is a short state string for the UI; LastPass is the latest inference time.
 func (l *Live) Status() (string, time.Duration) {
 	l.mu.Lock()
@@ -272,6 +298,7 @@ func (l *Live) run() {
 		window := append([]float32(nil), l.ring[len(l.ring)-need:]...)
 		rate, fed := l.rate, l.fed
 		focus := l.focus
+		l.busy = true
 		l.mu.Unlock()
 
 		lastDecode = time.Now()
@@ -288,6 +315,8 @@ func (l *Live) run() {
 		})
 
 		l.mu.Lock()
+		l.busy = false
+		l.covered = fed
 		l.lastPass = pass
 		if err != nil {
 			l.status = "decode error: " + err.Error()
@@ -298,7 +327,10 @@ func (l *Live) run() {
 			l.mu.Unlock()
 			continue
 		}
-		if s := st.add(chars, startAbs, endAbs, endAbs-TailGuardSecs, true); strings.Trim(s, " ") != "" {
+		// A window whose only new text is a word space must still be kept.
+		// Trimming spaces here dropped the gap in "CQ CQ" when that gap was
+		// the only character outside the previous window's tail guard.
+		if s := st.add(chars, startAbs, endAbs, endAbs-TailGuardSecs, true); s != "" {
 			l.text.WriteString(s)
 		}
 		l.status = "decoding"

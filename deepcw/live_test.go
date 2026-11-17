@@ -8,13 +8,44 @@ import (
 	"github.com/Jnubbz/cw-console/cw"
 )
 
+func waitCaughtUp(t *testing.T, l *Live) bool {
+	t.Helper()
+	deadline := time.Now().Add(45 * time.Second)
+	for time.Now().Before(deadline) {
+		if l.CaughtUp() {
+			return true
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return false
+}
+
+// A space that falls in the tail guard has to come back from the next window.
+func TestStitcherRecoversASpaceTheTailGuardSkipped(t *testing.T) {
+	var s stitcher
+	// The space sits in the tail (past the cutoff) so this window must not emit it.
+	first := s.add([]TimedChar{{Ch: "C", At: 1}, {Ch: "Q", At: 1.2}, {Ch: " ", At: 4.2}}, 0, 5, 3.5, true)
+	if strings.Contains(first, " ") {
+		t.Fatalf("tail space was emitted early: %q", first)
+	}
+	// The next window repeats it, inside its cutoff. Absolute time 4.2 is after
+	// the previous cursor (3.5) and before this cutoff (6.5).
+	second := s.add([]TimedChar{{Ch: "Q", At: 2.2}, {Ch: " ", At: 2.2}, {Ch: "C", At: 2.5}, {Ch: "Q", At: 2.7}}, 2, 8, 6.5, true)
+	if !strings.Contains(second, " ") {
+		t.Fatalf("next window did not restore the space: %q / %q", first, second)
+	}
+}
+
 // Feed a recording in real-time-sized chunks (fast-forwarded) through Live and check the
 // stitched transcript and the line break between two overs.
 func TestLiveStitchesAndBreaksLines(t *testing.T) {
 	m := loadT(t)
 	l := NewLive(m)
 	defer l.Close()
-	l.SetPlan(Plan{Threads: 2, Cadence: 0, Throttle: 0})
+	// One thread: the matrix code's thread count is process-global, and this test
+	// is about stitching, not about a parallel race. Cadence 0 still decodes as
+	// the audio arrives; CaughtUp waits until that pass has seen the samples.
+	l.SetPlan(Plan{Threads: 1, Cadence: 0, Throttle: 0})
 	l.SetFocus(DefaultFocus(650))
 	l.SetEnabled(true)
 	const rate = 12000
@@ -32,18 +63,14 @@ func TestLiveStitchesAndBreaksLines(t *testing.T) {
 	chunk := rate / 2
 	for i := 0; i < len(a); i += chunk {
 		l.Push(a[i:min(i+chunk, len(a))], rate)
-		// wait for the worker to process this half-second step
-		deadline := time.Now().Add(5 * time.Second)
-		for time.Now().Before(deadline) {
-			time.Sleep(20 * time.Millisecond)
-			if st, _ := l.Status(); st == "decoding" || i < 15*rate {
-				break
-			}
+		if !waitCaughtUp(t, l) {
+			t.Fatalf("decoder did not catch up at sample %d", i)
 		}
-		time.Sleep(150 * time.Millisecond)
 		got.WriteString(l.TakeText())
 	}
-	time.Sleep(time.Second)
+	if !waitCaughtUp(t, l) {
+		t.Fatal("decoder did not finish")
+	}
 	got.WriteString(l.TakeText())
 	lines := strings.Split(strings.TrimSpace(got.String()), "\n")
 	for i := range lines {

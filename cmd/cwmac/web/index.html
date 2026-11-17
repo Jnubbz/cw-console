@@ -172,6 +172,13 @@
   #heard { display: flex; gap: 6px; flex-wrap: wrap; min-height: 30px; align-items: center; }
   #heard button { font: 14px var(--mono); padding: 4px 9px; min-height: 30px; }
   #heard .none { color: var(--faint); }
+  #qrzcard { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; padding: 6px 10px;
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 8px; font-size: 14px; }
+  #qrzcard[hidden] { display: none; }
+  #qrzcard .call { font: 600 16px var(--mono); }
+  #qrzcard .need { color: var(--green); font-weight: 700; }
+  #qrzcard .dim { color: var(--dim); }
+  #qrzcard .who { color: var(--text); }
   input[type=number] { width: 64px; padding: 6px 6px; }
   #call.dupe { border-color: var(--red); box-shadow: 0 0 0 1px var(--red); }
   #opsstat { color: var(--brass); }
@@ -403,6 +410,7 @@
 </div>
 
 <pre id="log" class="cwonly"></pre>
+<div id="qrzcard" hidden></div>
 <div class="row cwonly">
   <button id="clear">Clear</button><button id="copy">Copy all</button><button id="save">Save...</button>
 </div>
@@ -547,6 +555,13 @@
       <div class="row"><button id="ctmacros" title="The F-keys in Contest mode (contest-macros.txt)">Edit contest macros</button><button id="ctnew" title="The score starts again from now. (Contacts stay in your regular log, and when the contest starts at 0000Z the log starts fresh by itself.)">Start a new contest log</button><button id="ctcab2">Save Cabrillo</button></div>
       <div class="row dim" id="ctcty" style="font-size:12px"></div>
     </div>
+  </section>
+  <section>
+    <h3>QRZ</h3>
+    <div class="note" id="qrzstat">Country, worked-before and needs come from cty.dat and your log with or without a login. A QRZ XML login adds the name, state and grid.</div>
+    <div class="row"><label for="qrzuser">Username</label><input id="qrzuser" type="text" autocomplete="username" spellcheck="false" style="flex:1;min-width:0" placeholder="QRZ username"></div>
+    <div class="row"><label for="qrzpass">Password</label><input id="qrzpass" type="password" autocomplete="current-password" style="flex:1;min-width:0" placeholder="QRZ password"></div>
+    <div class="row"><button id="qrzsave" class="primary">Save QRZ login</button><span class="dim">Stored on this computer. The page is not shown the password.</span></div>
   </section>
   <section id="setupdate">
     <h3>Updates</h3>
@@ -779,6 +794,7 @@ function applyState(st) {
   }
   $("txon").checked = st.txOn;
   applyOps(st);
+  renderCard(st);
   applyBox(st);
   applyFT8(st);
   applyRadios(s);
@@ -1610,7 +1626,42 @@ $("radiodel").onclick = () => {
   const cur = $("radiosel").value;
   if (confirm("Delete the radio " + cur + " and its settings?")) radioDo("delete", cur);
 };
-$("setupbtn").onclick = () => $("setupModal").classList.add("open");
+$("setupbtn").onclick = () => { $("setupModal").classList.add("open"); loadQRZ(); };
+async function loadQRZ() {
+  const r = await api("/api/qrz");
+  const el = $("qrzstat");
+  if (!el) return;
+  if (r.user && r.password) el.textContent = "QRZ username and password are saved on this computer. Lookups use them from the program, not from the page.";
+  else if (r.user) el.textContent = "QRZ username is saved. The password is not.";
+  else el.textContent = "No QRZ login saved. The decode card still shows country, worked-before and needs from cty.dat and your log.";
+}
+$("qrzsave").onclick = async () => {
+  const r = await api("/api/qrz", { username: $("qrzuser").value, password: $("qrzpass").value });
+  $("qrzpass").value = "";
+  if (r.error) { note(r.error); return; }
+  loadQRZ();
+};
+function renderCard(st) {
+  const el = $("qrzcard"), c = st && st.card;
+  if (!el) return;
+  if (!c || !c.call) { el.hidden = true; el.replaceChildren(); return; }
+  el.hidden = false;
+  el.replaceChildren();
+  const call = document.createElement("span"); call.className = "call"; call.textContent = c.call; el.appendChild(call);
+  const where = [c.country, c.state, c.cq ? "CQ " + c.cq : ""].filter(Boolean).join(" · ");
+  if (where) { const s = document.createElement("span"); s.textContent = where; el.appendChild(s); }
+  if (c.worked) {
+    const s = document.createElement("span"); s.className = "dim";
+    s.textContent = "worked " + (c.last || "before");
+    el.appendChild(s);
+  }
+  for (const n of c.needs || []) { const s = document.createElement("span"); s.className = "need"; s.textContent = n; el.appendChild(s); }
+  const who = [c.name, c.grid].filter(Boolean).join(" · ");
+  if (who) { const s = document.createElement("span"); s.className = "who"; s.textContent = who; el.appendChild(s); }
+  if (c.qrz === "offline") { const s = document.createElement("span"); s.className = "dim"; s.textContent = "QRZ offline"; el.appendChild(s); }
+  else if (c.qrz === "wait") { const s = document.createElement("span"); s.className = "dim"; s.textContent = "QRZ…"; el.appendChild(s); }
+  if (c.message) el.title = c.message;
+}
 $("setupClose").onclick = () => $("setupModal").classList.remove("open");
 $("setupModal").onclick = (ev) => { if (ev.target === $("setupModal")) $("setupModal").classList.remove("open"); };
 // UTC clock and the FT8 slot bar: where we are in the 15-second cycle (on the box's
