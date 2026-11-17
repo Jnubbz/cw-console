@@ -9,10 +9,9 @@
 //   - SSTV: an AnalyserNode in the browser (sstv-console cmd/sstv-console/web/app.js).
 //     The Go process never sees those bins.
 //
-// The replacement is one analyzer on the capture stream, and a Span per mode
-// that selects which bins the page draws. Click-to-tune uses HzAt so every
-// mode maps a column the same way. This package does not run an FFT yet, and
-// it does not replace cw.Waterfall. Doing that is phase 3 of the plan.
+// One Analyzer runs a Hann FFT on the capture stream. Each mode draws a Span
+// of that frame. ClickHz maps a click the way the canvases always have:
+// fraction 0 is LoHz and fraction 1 is HiHz.
 package spectrum
 
 // Span is the slice of audio spectrum a mode shows.

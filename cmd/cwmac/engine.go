@@ -24,15 +24,14 @@ import (
 	"github.com/Jnubbz/cw-console/lookup"
 	"github.com/Jnubbz/cw-console/lookup/qrz"
 	"github.com/Jnubbz/cw-console/ops"
+	"github.com/Jnubbz/cw-console/spectrum"
 )
 
 const (
-	specLo, specHi, specStep = 200, 1400, 10
-	cwWfCols                 = 241 // CW waterfall: 5 Hz columns over specLo..specHi
-	pitchMin, pitchMax       = 300, 1200
-	breakAfter               = 2500 * time.Millisecond
-	historyCap               = 200_000 // transcript bytes kept for page reloads
-	txMuteHang               = 400 * time.Millisecond
+	pitchMin, pitchMax = 300, 1200
+	breakAfter         = 2500 * time.Millisecond
+	historyCap         = 200_000 // transcript bytes kept for page reloads
+	txMuteHang         = 400 * time.Millisecond
 )
 
 // Settings persist across launches (JSON in the app's support folder).
@@ -85,6 +84,17 @@ type Settings struct {
 	// {LOG} in a macro logs the contact: one switch for everyday CW, one for contests
 	AutoLog        bool `json:"autoLog"`
 	ContestAutoLog bool `json:"contestAutoLog"`
+
+	// Spectrum display. Zero values mean the mode's own default:
+	// CW keeps the 200–1400 Hz canvas, FT8 keeps 0–3000 Hz at 256 columns.
+	SpecPreset string  `json:"specPreset,omitempty"`
+	SpecLo     float64 `json:"specLo,omitempty"`
+	SpecHi     float64 `json:"specHi,omitempty"`
+	SpecCols   int     `json:"specCols,omitempty"`
+	SpecLift   float64 `json:"specLift,omitempty"`
+	SpecRange  float64 `json:"specRange,omitempty"`
+	SpecFFT    int     `json:"specFFT,omitempty"`
+	SpecFPS    float64 `json:"specFPS,omitempty"`
 }
 
 func defaultSettings() Settings {
@@ -103,7 +113,13 @@ type Engine struct {
 	dec  *cw.StreamDecoder
 	hist []float32
 	spec []float32
-	freq []float32
+
+	an        *spectrum.Analyzer
+	anRate    int
+	anFFT     int
+	anFPS     float64
+	specFloor float64
+	specHave  bool
 
 	// transcript
 	text     strings.Builder
@@ -188,10 +204,6 @@ type Engine struct {
 func newEngine(h *hub) *Engine {
 	e := &Engine{st: defaultSettings(), hub: h, atBreak: true}
 	e.loadSettings()
-	for f := float32(specLo); f <= specHi; f += specStep {
-		e.freq = append(e.freq, f)
-	}
-	e.spec = make([]float32, len(e.freq))
 	e.assist = ops.NewAssist()
 	e.assist.Cfg = e.st.Ops
 	e.logbook = ops.OpenLog(logDir())
@@ -369,6 +381,7 @@ func (e *Engine) pushAudio(samples []float32, rate int) {
 	}
 	e.lastAudio = time.Now()
 	if e.st.Mode == "ft8" {
+		e.ft8.setView(e.specViewLocked())
 		e.ft8.push(samples, rate)
 		return
 	}
@@ -395,6 +408,7 @@ func (e *Engine) pushAudio(samples []float32, rate int) {
 	if keep := rate * 4; len(e.hist) > keep {
 		e.hist = append(e.hist[:0], e.hist[len(e.hist)-keep:]...)
 	}
+	e.noteSpecLocked(samples)
 }
 
 func (e *Engine) audioRunning() bool { return time.Since(e.lastAudio) < time.Second }
@@ -522,31 +536,48 @@ func (e *Engine) aiStatusLocked() string {
 
 // ---- spectrum / autotune ----
 
-func (e *Engine) updateSpectrumLocked() {
-	if e.rate == 0 {
+func (e *Engine) specViewLocked() spectrum.View {
+	return spectrum.Resolve(e.st.Mode, e.st.SpecPreset, e.st.SpecLo, e.st.SpecHi, e.st.SpecCols, e.st.SpecLift, e.st.SpecRange, e.st.SpecFFT, e.st.SpecFPS)
+}
+
+// noteSpecLocked folds new capture samples into the one FFT for this stream.
+// The decoder has already been given its own copy of the audio.
+func (e *Engine) noteSpecLocked(samples []float32) {
+	if e.rate == 0 || len(samples) == 0 {
 		return
 	}
-	if e.wf == nil || int(e.wfRate) != e.rate {
-		e.wf, e.wfRate = cw.NewWaterfall(float32(e.rate), specLo, specHi, cwWfCols), e.rate
+	v := e.specViewLocked()
+	if e.an == nil || e.anRate != e.rate || e.anFFT != v.FFT || e.anFPS != v.FPS {
+		e.an = spectrum.New(spectrum.Config{Rate: e.rate, FFTSize: v.FFT, FrameRate: v.FPS})
+		e.anRate, e.anFFT, e.anFPS = e.rate, v.FFT, v.FPS
+		e.specFloor, e.specHave = 0, false
+		e.spec = nil
 	}
-	e.wfRow = nil
-	if e.audioRunning() {
-		e.wfRow = e.wf.Row(e.hist)
-	}
-	n := e.rate * 3 / 10
-	if len(e.hist) < n {
+	frames := e.an.Push(samples)
+	if len(frames) == 0 {
 		return
 	}
-	p := cw.Spectrum(e.hist[len(e.hist)-n:], float32(e.rate), e.freq)
-	med := median(p)
-	for i, v := range p {
-		db := float32(10 * math.Log10(float64(v/med)+1e-12))
-		db = float32(math.Max(0, math.Min(40, float64(db))))
-		if db > e.spec[i] {
-			e.spec[i] = db
+	db := spectrum.ColumnsDB(frames[len(frames)-1], e.an.Rate(), e.an.Size(), v.Span)
+	e.specFloor = spectrum.TrackFloor(e.specFloor, spectrum.NoiseMedian(db, v.Span, v.FloorFrom), 0.1, !e.specHave)
+	e.specHave = true
+	e.wfRow = spectrum.Levels(db, e.specFloor, v.Lift, v.Range)
+	trace := spectrum.Trace(db, e.specFloor, v.Lift, v.Range)
+	if len(e.spec) != len(trace) {
+		e.spec = trace
+		return
+	}
+	for i := range trace {
+		if trace[i] > e.spec[i] {
+			e.spec[i] = trace[i]
 		} else {
-			e.spec[i] = e.spec[i]*0.6 + db*0.4
+			e.spec[i] = e.spec[i]*0.6 + trace[i]*0.4
 		}
+	}
+}
+
+func (e *Engine) updateSpectrumLocked() {
+	if !e.audioRunning() {
+		e.wfRow = nil
 	}
 }
 
@@ -764,7 +795,9 @@ func (e *Engine) logFT8(l *ft8Log, manual bool) {
 }
 
 func (e *Engine) stateLocked() event {
-	s := &stateMsg{Settings: e.st, Spec: e.spec, WF: e.wfRow, Running: e.audioRunning(), Level: e.level.read(time.Now()),
+	view := e.specViewLocked()
+	s := &stateMsg{Settings: e.st, Spec: e.spec, WF: e.wfRow, SpecLo: view.Span.LoHz, SpecHi: view.Span.HiHz, SpecName: view.Span.Name,
+		Running: e.audioRunning(), Level: e.level.read(time.Now()),
 		FocusWidth: deepcw.FocusWidth, SIMD: deepcw.SIMDName()}
 	if e.dec != nil {
 		s.Key = e.dec.KeyDown()
@@ -802,6 +835,9 @@ func (e *Engine) stateLocked() event {
 type stateMsg struct {
 	Settings   Settings      `json:"settings"`
 	Spec       []float32     `json:"spec"`
+	SpecLo     float64       `json:"specLo"`
+	SpecHi     float64       `json:"specHi"`
+	SpecName   string        `json:"specName"`
 	WF         []byte        `json:"wf,omitempty"`    // newest waterfall row, 0-255 (base64 in JSON)
 	Level      *levelMsg     `json:"level,omitempty"` // receive audio level, dBFS
 	Contest    *contestState `json:"contest,omitempty"`
@@ -852,20 +888,6 @@ type boxState struct {
 	WifiName        string     `json:"wifiName"`
 	DefaultPassword bool       `json:"defaultPassword"`
 	Logs            []string   `json:"logs"`
-}
-
-func median(p []float32) float32 {
-	s := append([]float32(nil), p...)
-	for i := 1; i < len(s); i++ {
-		for j := i; j > 0 && s[j] < s[j-1]; j-- {
-			s[j], s[j-1] = s[j-1], s[j]
-		}
-	}
-	m := s[len(s)/2]
-	if m < 1e-12 {
-		m = 1e-12
-	}
-	return m
 }
 
 // ft8LevelGain: the page's Level (0-100) as an amplitude: decibels, like WSJT-X's Pwr
