@@ -22,6 +22,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Jnubbz/cw-console/spectrum"
 )
 
 const (
@@ -106,6 +108,7 @@ type ft8State struct {
 	Auto   string     `json:"auto"`  // depth lowered automatically, and why
 	WFSeq  int64      `json:"wfSeq"` // waterfall rows made so far; WF = the newest of them
 	WF     [][]byte   `json:"wf"`
+	Spec   []float32  `json:"spec,omitempty"` // spectrum line, same columns as the waterfall
 	Busy   bool       `json:"busy"`
 	LastN  int        `json:"lastN"`
 	LastS  float64    `json:"lastSecs"`
@@ -421,7 +424,14 @@ func (f *ft8Rx) state() *ft8State {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return &ft8State{On: f.on, Seq: f.seq, Status: f.status, Offset: math.Round(f.offset*10) / 10,
-		WFSeq: f.wf.seq, WF: append([][]byte(nil), f.wf.rows...), Auto: f.autoTextLocked(), Busy: f.busy, LastN: f.last.n, LastS: math.Round(f.last.secs*10) / 10, Slot: f.last.slot, Have: ft8Available()}
+		WFSeq: f.wf.seq, WF: append([][]byte(nil), f.wf.rows...), Spec: append([]float32(nil), f.wf.trace...),
+		Auto: f.autoTextLocked(), Busy: f.busy, LastN: f.last.n, LastS: math.Round(f.last.secs*10) / 10, Slot: f.last.slot, Have: ft8Available()}
+}
+
+func (f *ft8Rx) setView(v spectrum.View) {
+	f.mu.Lock()
+	f.wf.setView(v)
+	f.mu.Unlock()
 }
 
 func (f *ft8Rx) list() []ft8Decode {

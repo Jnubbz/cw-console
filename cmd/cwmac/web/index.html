@@ -152,6 +152,10 @@
 
   /* CW */
   #spec { width: 100%; height: 108px; background: var(--well); border-radius: 7px; cursor: crosshair; display: block; }
+  .specbar { flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+  .specbar label { color: var(--dim); font-size: 12px; gap: 4px; }
+  .specbar select, .specbar button { min-height: 26px; padding: 2px 8px; font-size: 12px; }
+  .specbar input[type=range] { width: 84px; }
   #log { flex: 1; min-height: 120px; margin: 0; padding: 10px 12px; overflow-y: auto; background: var(--well);
     color: var(--rx); border-radius: 8px; border: 1px solid var(--edge); font: 18px/1.45 var(--mono);
     white-space: pre-wrap; word-break: break-word; }
@@ -207,7 +211,8 @@
   #f8lamprow { flex-wrap: nowrap; min-width: 0; }
   #f8lamprow > * { white-space: nowrap; }
   #f8next { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  #f8wfwrap { position: relative; height: 120px; flex: none; background: #000; border-radius: 8px; overflow: hidden; cursor: crosshair; touch-action: manipulation; border: 1px solid var(--edge); }
+  #f8spec { width: 100%; height: 56px; background: #000; border-radius: 8px 8px 0 0; display: block; cursor: crosshair; border: 1px solid var(--edge); border-bottom: none; }
+  #f8wfwrap { position: relative; height: 120px; flex: none; background: #000; border-radius: 0 0 8px 8px; overflow: hidden; cursor: crosshair; touch-action: manipulation; border: 1px solid var(--edge); border-top: none; }
   #f8wfwrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   #listbar { display: flex; align-items: center; gap: 10px; padding: 0 2px; }
   #listbar button { min-height: 30px; padding: 3px 10px; }
@@ -364,6 +369,23 @@
   <button id="autotune">Auto tune</button>
 </div>
 <canvas id="spec" class="cwonly"></canvas>
+<div class="specbar row cwonly" id="specbar">
+  <label>Span <select class="specpreset" title="Which part of the audio the waterfall shows">
+    <option value="">Wide 200–1400</option>
+    <option value="cw">CW 300–1200</option>
+    <option value="ft8">FT8 0–3000</option>
+    <option value="sstv">SSTV 1100–2400</option>
+  </select></label>
+  <button type="button" class="speczin" title="Zoom in around the pitch">+</button>
+  <button type="button" class="speczout" title="Zoom out">−</button>
+  <button type="button" class="speczreset" title="Back to this mode's span">Reset</button>
+  <label title="How far above the noise floor a signal has to be before it is bright">Bright <input class="speclift" type="range" min="0" max="12" step="1" value="3"></label>
+  <label title="dB from the noise floor to full brightness">Contrast <input class="specrange" type="range" min="12" max="60" step="1" value="36"></label>
+  <label title="Hold the loudest trace"><input class="specpeak" type="checkbox"> Peak</label>
+  <button type="button" class="specpeakclear" title="Clear the held peaks">Clear</button>
+  <label>FFT <select class="specfft" title="FFT size. Larger is finer and costs more CPU."><option>1024</option><option>2048</option><option selected>4096</option><option>8192</option></select></label>
+  <label>Rate <select class="specfps" title="Waterfall rows per second"><option>5</option><option>8</option><option selected>10</option><option>15</option></select></label>
+</div>
 <div id="stripbox" class="cwonly" hidden>
   <div id="striphead">
     <span class="grp"><label for="stripband" title="The band the strip shows: the rig's band (over CAT), or pick one">Spots</label>
@@ -403,7 +425,25 @@
     </div>
     <div id="f8hint"></div>
   </div>
-  <div id="f8wfwrap" title="Waterfall, 0-3000 Hz (the red line is your TX frequency). Tap to transmit there."><canvas id="f8wf" width="256" height="120"></canvas><canvas id="f8wfo"></canvas></div>
+  <canvas id="f8spec" title="Spectrum of the same FFT as the waterfall. Tap a signal to transmit there."></canvas>
+  <div id="f8wfwrap" title="Waterfall, 0-3000 Hz (the red line is your TX frequency, the blue line is the station you're reading). Tap to transmit there."><canvas id="f8wf" width="256" height="120"></canvas><canvas id="f8wfo"></canvas></div>
+  <div class="specbar row" id="f8specbar">
+    <label>Span <select class="specpreset" title="Which part of the audio the waterfall shows">
+      <option value="">FT8 0–3000</option>
+      <option value="cw">CW 300–1200</option>
+      <option value="ft8">FT8 0–3000</option>
+      <option value="sstv">SSTV 1100–2400</option>
+    </select></label>
+    <button type="button" class="speczin" title="Zoom in around the TX frequency">+</button>
+    <button type="button" class="speczout" title="Zoom out">−</button>
+    <button type="button" class="speczreset" title="Back to this mode's span">Reset</button>
+    <label>Bright <input class="speclift" type="range" min="0" max="12" step="1" value="3"></label>
+    <label>Contrast <input class="specrange" type="range" min="12" max="60" step="1" value="30"></label>
+    <label title="Hold the loudest trace"><input class="specpeak" type="checkbox"> Peak</label>
+    <button type="button" class="specpeakclear">Clear</button>
+    <label>FFT <select class="specfft"><option>1024</option><option>2048</option><option selected>4096</option><option>8192</option></select></label>
+    <label>Rate <select class="specfps"><option>5</option><option selected>8</option><option>10</option><option>15</option></select></label>
+  </div>
   <div id="listbar"><span class="spacer"></span>
     <label title="Show only CQ calls (and anything with your call)"><input id="ft8cq" type="checkbox"> CQ only</label>
     <button id="ft8clear" title="Clear the list">Clear</button></div>
@@ -899,6 +939,40 @@ function cwfPush(b64) {
   for (let x = 0; x < n; x++) { const v = bin.charCodeAt(x) * 3; row.data.set([lut[v], lut[v + 1], lut[v + 2], 255], x * 4); }
   g.putImageData(row, 0, 0);
 }
+function spanNow() {
+  if (S && S.specHi > S.specLo) return { lo: S.specLo, hi: S.specHi, name: S.specName || "" };
+  if (S && S.settings && S.settings.mode === "ft8") return { lo: 0, hi: 3000, name: "ft8" };
+  return { lo: 200, hi: 1400, name: "cw-wide" };
+}
+let specPeaks = null, spanKey = "";
+function heldTrace(spec) {
+  if (!spec) return spec;
+  const box = document.querySelector(".specpeak");
+  if (!box || !box.checked) { specPeaks = null; return spec; }
+  if (!specPeaks || specPeaks.length !== spec.length) specPeaks = spec.slice();
+  else for (let i = 0; i < spec.length; i++) if (spec[i] > specPeaks[i]) specPeaks[i] = spec[i];
+  return specPeaks;
+}
+function noteSpan() {
+  const s = spanNow();
+  const k = s.name + ":" + s.lo + ":" + s.hi;
+  if (k === spanKey) return;
+  spanKey = k; CWF.c.width = CWF.c.width; wfLast = 0;
+}
+function rfText(audioHz) {
+  const st = (typeof RIG !== "undefined" && RIG.st) || null;
+  if (!st || !st.freqA || !S || !S.settings) return "";
+  const usb = st.mode === "2" || st.mode === "3" || st.mode === "9" || st.mode === "C";
+  const lsb = st.mode === "1" || st.mode === "6" || st.mode === "7" || st.mode === "8";
+  let rf = 0;
+  if (S.settings.mode === "cw") {
+    const p = S.settings.pitch || 600;
+    if (usb) rf = st.freqA + (audioHz - p);
+    else if (lsb) rf = st.freqA - (audioHz - p);
+  } else if (usb) rf = st.freqA + audioHz;
+  else if (lsb) rf = st.freqA - audioHz;
+  return rf ? (rf / 1e6).toFixed(3) : "";
+}
 function drawSpec() {
   const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
   if (cv.width !== W * dpr || cv.height !== H * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
@@ -906,7 +980,10 @@ function drawSpec() {
   const css = getComputedStyle(document.body), col = (v) => css.getPropertyValue(v).trim();
   g.fillStyle = col("--well"); g.fillRect(0, 0, W, H);
   if (!S) return;
-  const lo = 200, hi = 1400, specH = 78, scaleH = 16, wfTop = specH + scaleH, wfH = H - wfTop;
+  noteSpan();
+  const spn = spanNow(), lo = spn.lo, hi = spn.hi;
+  const rf = rfText((lo + hi) / 2) !== "" || rfText(lo) !== "";
+  const specH = 78, scaleH = rf ? 28 : 16, wfTop = specH + scaleH, wfH = H - wfTop;
   const fx = (f) => (W - 1) * (f - lo) / (hi - lo);
   const s = S.settings, p = s.pitch, ai = s.decoder === "ai";
   // waterfall (history), smoothed to the width
@@ -917,7 +994,8 @@ function drawSpec() {
   g.fillStyle = col("--brass"); g.globalAlpha = 0.12;
   g.fillRect(fx(pass[0]), 0, fx(pass[1]) - fx(pass[0]), H); g.globalAlpha = 1;
   // spectrum: a filled line
-  const pts = S.spec.map((v, i) => [fx(lo + i * 10), specH - 4 - v / 40 * (specH - 10)]);
+  const trace = heldTrace(S.spec) || [];
+  const pts = trace.map((v, i) => [fx(lo + (i + 0.5) * (hi - lo) / trace.length), specH - 4 - v / 40 * (specH - 10)]);
   const grad = g.createLinearGradient(0, 0, 0, specH);
   grad.addColorStop(0, col("--brass")); grad.addColorStop(1, "transparent");
   g.beginPath(); g.moveTo(0, specH);
@@ -928,9 +1006,19 @@ function drawSpec() {
   // scale between them
   g.fillStyle = col("--panel"); g.fillRect(0, specH, W, scaleH);
   g.fillStyle = col("--dim"); g.font = "11px " + col("--mono"); g.textAlign = "center";
-  for (let f = 300; f <= 1300; f += 100) {
-    const x = fx(f); g.fillRect(x, specH, 1, f % 200 === 0 ? 5 : 3);
-    if (f % 200 === 0) g.fillText(String(f), x, specH + 14);
+  const step = (hi - lo) > 2000 ? 500 : 100;
+  const first = Math.ceil(lo / step) * step;
+  for (let f = first; f < hi; f += step) {
+    const x = fx(f); g.fillRect(x, specH, 1, f % (step * 2) === 0 ? 5 : 3);
+    if (f % (step * 2) === 0) g.fillText(String(Math.round(f)), x, specH + 14);
+    const rf = rfText(f);
+    if (rf) g.fillText(rf, x, specH + 26);
+  }
+  if (spn.name === "sstv") {
+    g.textAlign = "left"; g.fillStyle = col("--brass");
+    for (const [hz, name] of [[1200, "sync"], [1500, "black"], [2300, "white"]]) {
+      const x = fx(hz); g.fillRect(x, specH, 1, scaleH); g.fillText(name, x + 2, specH + 12);
+    }
   }
   // pitch
   g.strokeStyle = col("--brass"); g.lineWidth = 2; g.beginPath(); g.moveTo(fx(p), 0); g.lineTo(fx(p), H); g.stroke(); g.lineWidth = 1;
@@ -938,8 +1026,15 @@ function drawSpec() {
   g.fillStyle = S.key ? col("--green") : S.signal ? "rgba(95,211,141,.35)" : col("--edge"); g.fillRect(W - 62, 6, 14, 14);
   g.fillStyle = col("--dim"); g.fillText("Key", W - 42, 18);
 }
-function tuneAt(ev) {
-  const r = cv.getBoundingClientRect(), f = 200 + (ev.clientX - r.left) / r.width * 1200;
+function tuneAt(ev, el) {
+  const r = (el || cv).getBoundingClientRect();
+  const { lo, hi } = spanNow();
+  const f = lo + (ev.clientX - r.left) / r.width * (hi - lo);
+  if (S && S.settings && S.settings.mode === "ft8") {
+    const hz = Math.max(200, Math.min(2900, Math.round(f / 10) * 10));
+    $("f8freq").value = hz; touched.f8freq = Date.now(); setting({ ft8TxFreq: hz }); note("TX frequency " + hz + " Hz");
+    return;
+  }
   const p = Math.max(300, Math.min(1200, Math.round(f / 5) * 5));
   touched.pitch = Date.now(); $("pitch").value = p; $("pitchv").textContent = p + " Hz";
   if (S) { S.settings.pitch = p; drawSpec(); }
@@ -950,6 +1045,55 @@ cv.addEventListener("pointerdown", (e) => { dragging = true; cv.setPointerCaptur
 cv.addEventListener("pointermove", (e) => { if (dragging) tuneAt(e); });
 cv.addEventListener("pointerup", () => { dragging = false; });
 window.addEventListener("resize", drawSpec);
+
+const SPEC_PRESETS = {
+  cw: { lo: 300, hi: 1200, cols: 200 },
+  ft8: { lo: 0, hi: 3000, cols: 256 },
+  sstv: { lo: 1100, hi: 2400, cols: 256 },
+};
+function applyPreset(name) {
+  if (!name) { setting({ specPreset: "", specLo: 0, specHi: 0, specCols: 0 }); return; }
+  const p = SPEC_PRESETS[name];
+  if (!p) return;
+  setting({ specPreset: name, specLo: p.lo, specHi: p.hi, specCols: p.cols });
+}
+function zoomSpec(factor) {
+  const { lo, hi } = spanNow();
+  let around = (lo + hi) / 2;
+  if (S && S.settings && S.settings.mode === "ft8") around = +$("f8freq").value || around;
+  else if (S && S.settings) around = +S.settings.pitch || around;
+  let width = (hi - lo) * factor;
+  if (width < 100) width = 100;
+  if (width > 6000) width = 6000;
+  let nlo = around - width / 2;
+  if (nlo < 0) nlo = 0;
+  let nhi = nlo + width;
+  if (nhi > 6000) { nhi = 6000; nlo = Math.max(0, nhi - width); }
+  const cols = (S && S.spec && S.spec.length) || 241;
+  setting({ specPreset: "custom", specLo: Math.round(nlo), specHi: Math.round(nhi), specCols: cols });
+}
+document.querySelectorAll(".specbar").forEach((bar) => {
+  bar.querySelector(".specpreset").onchange = (e) => applyPreset(e.target.value);
+  bar.querySelector(".speczin").onclick = () => zoomSpec(0.5);
+  bar.querySelector(".speczout").onclick = () => zoomSpec(2);
+  bar.querySelector(".speczreset").onclick = () => applyPreset("");
+  bar.querySelector(".speclift").oninput = (e) => {
+    setting({ specLift: +e.target.value, specRange: +bar.querySelector(".specrange").value });
+  };
+  bar.querySelector(".specrange").oninput = (e) => {
+    setting({ specRange: +e.target.value, specLift: +bar.querySelector(".speclift").value });
+  };
+  bar.querySelector(".specpeak").onchange = (e) => {
+    document.querySelectorAll(".specpeak").forEach((el) => { el.checked = e.target.checked; });
+    if (!e.target.checked) specPeaks = null;
+    try { localStorage.setItem("cwPeak", e.target.checked ? "1" : "0"); } catch {}
+    drawSpec(); if (S && S.ft8) drawF8Spec(S.ft8);
+  };
+  bar.querySelector(".specpeakclear").onclick = () => { specPeaks = null; drawSpec(); if (S && S.ft8) drawF8Spec(S.ft8); };
+  bar.querySelector(".specfft").onchange = (e) => setting({ specFFT: +e.target.value });
+  bar.querySelector(".specfps").onchange = (e) => setting({ specFPS: +e.target.value });
+});
+try { if (localStorage.getItem("cwPeak") === "1") document.querySelectorAll(".specpeak").forEach((el) => { el.checked = true; }); } catch {}
 
 // ---------- audio capture: rig audio -> the app ----------
 let capture = null;
@@ -1427,10 +1571,12 @@ const wfLUT = (() => { // black, blue, cyan, yellow, red, white (like WSJT-X's d
   }
   return lut;
 })();
-let wfLast = 0, wfTx = -1, wfW = 0;
+let wfLast = 0, wfTx = -1, wfW = 0, wfRx = -1;
 function drawWF(f, txHz) {
   if (!f || !document.body.classList.contains("ft8")) return;
+  noteSpan();
   const c = $("f8wf"), g = c.getContext("2d");
+  if (f.spec && f.spec.length && c.width !== f.spec.length) { c.width = f.spec.length; wfLast = 0; }
   if (f.wfSeq < wfLast) wfLast = 0; // the box restarted
   const rows = f.wf || [], first = f.wfSeq - rows.length + 1;
   rows.forEach((b64, k) => {
@@ -1444,21 +1590,54 @@ function drawWF(f, txHz) {
     g.putImageData(img, 0, 0);
     wfLast = first + k;
   });
+  drawF8Spec(f);
   const o = $("f8wfo"), w = o.clientWidth;
-  if (txHz === wfTx && w === wfW) return;
-  wfTx = txHz; wfW = w;
+  const rx = ft8RxHz();
+  if (txHz === wfTx && w === wfW && rx === wfRx) return;
+  wfTx = txHz; wfW = w; wfRx = rx;
   const dpr = window.devicePixelRatio || 1; o.width = w * dpr; o.height = o.clientHeight * dpr;
   const og = o.getContext("2d"); og.scale(dpr, dpr); og.clearRect(0, 0, w, o.clientHeight);
+  const { lo, hi } = spanNow();
+  const xOf = (hz) => (hz - lo) / (hi - lo) * w;
   og.font = "11px system-ui, sans-serif"; og.fillStyle = "rgba(255,255,255,.75)"; og.strokeStyle = "rgba(255,255,255,.35)";
-  for (let hz = 500; hz < WF_HZ; hz += 500) {
-    const x = Math.round(hz / WF_HZ * w) + 0.5;
+  const step = (hi - lo) > 2000 ? 500 : 200;
+  for (let hz = Math.ceil(lo / step) * step; hz < hi; hz += step) {
+    const x = Math.round(xOf(hz)) + 0.5;
     og.beginPath(); og.moveTo(x, 0); og.lineTo(x, 6); og.stroke(); og.fillText(String(hz), x + 3, 11);
   }
+  if (rx > 0) {
+    const x = xOf(rx);
+    og.strokeStyle = "rgba(80,170,255,.9)"; og.beginPath(); og.moveTo(x, 0); og.lineTo(x, o.clientHeight); og.stroke();
+  }
   if (txHz > 0) { // an FT8 signal is 50 Hz wide: show where ours goes
-    const x0 = txHz / WF_HZ * w, x1 = (txHz + 50) / WF_HZ * w;
+    const x0 = xOf(txHz), x1 = xOf(txHz + 50);
     og.fillStyle = "rgba(255,40,40,.22)"; og.fillRect(x0, 0, x1 - x0, o.clientHeight);
     og.fillStyle = "#ff3b30"; og.fillRect(Math.round(x0) - 1, 0, 2, o.clientHeight);
   }
+}
+function ft8RxHz() {
+  if (!S || !S.ft8 || !S.ft8.tx) return 0;
+  const partner = S.ft8.tx.partner || "";
+  for (let i = ft8Rows.length - 1; i >= 0; i--) {
+    const d = ft8Rows[i];
+    if (!partner || (d.msg && d.msg.includes(partner))) return d.freq || 0;
+  }
+  return 0;
+}
+function drawF8Spec(f) {
+  const c = $("f8spec"); if (!c) return;
+  const dpr = window.devicePixelRatio || 1, W = c.clientWidth || c.parentElement.clientWidth, H = 56;
+  if (!W) return;
+  if (c.width !== W * dpr || c.height !== H * dpr) { c.width = W * dpr; c.height = H * dpr; }
+  const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = "#000"; g.fillRect(0, 0, W, H);
+  const spec = heldTrace(f && f.spec);
+  if (!spec || !spec.length) return;
+  const { lo, hi } = spanNow();
+  const fx = (hz) => (hz - lo) / (hi - lo) * (W - 1);
+  const pts = spec.map((v, i) => [fx(lo + (i + 0.5) * (hi - lo) / spec.length), H - 3 - v / 40 * (H - 8)]);
+  g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+  g.strokeStyle = "#7dcea0"; g.lineWidth = 1.5; g.stroke();
 }
 $("f8bench").onclick = async () => {
   const r = await api("/api/ft8/bench", {});
@@ -1472,11 +1651,8 @@ $("f8bench").onclick = async () => {
   };
   setTimeout(poll, 1000);
 };
-$("f8wfwrap").onclick = (ev) => {
-  const r = $("f8wfwrap").getBoundingClientRect();
-  const hz = Math.max(200, Math.min(2900, Math.round((ev.clientX - r.left) / r.width * WF_HZ / 10) * 10));
-  $("f8freq").value = hz; touched.f8freq = Date.now(); setting({ ft8TxFreq: hz }); note("TX frequency " + hz + " Hz");
-};
+$("f8wfwrap").onclick = (ev) => tuneAt(ev, $("f8wfwrap"));
+$("f8spec").onclick = (ev) => tuneAt(ev, $("f8spec"));
 let f8PartnerKey = "";
 function applyFT8Tx(st) {
   const t = st.ft8 && st.ft8.tx, s = st.settings;
@@ -1560,7 +1736,8 @@ $("f8clearspot").onclick = () => {
 $("mode").onchange = () => {
   touched.mode = Date.now();
   if ($("mode").value === "ft8" && S && S.txOn && !confirm("CW transmit and Auto-CQ will be switched off. Switch to FT8?")) { $("mode").value = "cw"; syncModeSeg(); return; }
-  setting({ mode: $("mode").value }); document.body.classList.toggle("ft8", $("mode").value === "ft8"); syncModeSeg();
+  setting({ mode: $("mode").value, specPreset: "", specLo: 0, specHi: 0, specCols: 0 });
+  document.body.classList.toggle("ft8", $("mode").value === "ft8"); syncModeSeg();
 };
 function syncModeSeg() {
   for (const b of $("modeseg").querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.m === $("mode").value));
