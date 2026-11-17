@@ -12,10 +12,9 @@ import (
 	"time"
 
 	"github.com/Jnubbz/cw-console/cw"
+	"github.com/Jnubbz/cw-console/keying"
 	"github.com/Jnubbz/cw-console/ops"
 )
-
-const deadManAfter = 5 * time.Second // no page connected this long -> stop sending
 
 type txEngine struct {
 	e        *Engine
@@ -27,6 +26,7 @@ type txEngine struct {
 	sentTail []rune
 	inLine   bool
 	sweeping bool // an SWR sweep is using the key line: hold the queue
+	closing  bool // closeLocked is waiting for the sweep to unkey
 
 	macros    [8]cw.Macro
 	ctx       cw.MacroContext
@@ -81,6 +81,7 @@ func (t *txEngine) saveMacrosLocked(text string) error {
 // enable opens the port and starts the keyer (or closes it when on=false).
 func (t *txEngine) enableLocked(on bool, port, line string) error {
 	t.closeLocked()
+	t.closing = false
 	if !on {
 		return nil
 	}
@@ -133,7 +134,8 @@ func (t *txEngine) newAudioKeyerLocked(port string) (*audioKeyer, error) {
 }
 
 func (t *txEngine) closeLocked() {
-	t.e.stopSweep() // its key line is about to close
+	t.closing = true
+	t.e.stopSweepWait() // unkey the carrier before this port is closed
 	if t.keyer != nil {
 		t.keyer.Abort()
 		t.keyer.Close()
@@ -249,6 +251,9 @@ func (t *txEngine) endLineLocked(suffix string) {
 // tickLocked runs every 25 ms: feed the keyer, echo what went out, end the TX line,
 // and stop if no page has been connected for a while (dead-man switch).
 func (t *txEngine) tickLocked() {
+	if t.closing {
+		return
+	}
 	k := t.keyer
 	if k == nil {
 		return
@@ -260,9 +265,13 @@ func (t *txEngine) tickLocked() {
 		return
 	default:
 	}
-	if t.e.hub.idleFor() > deadManAfter && (len(t.queue) > 0 || k.Busy()) {
+	busy := len(t.queue) > 0 || k.Busy() || t.sweeping
+	watch := keying.Watch{Idle: t.e.hub.idleFor}
+	if watch.Tick(busy, func() {
 		t.stopLocked()
 		t.e.setNoteLocked("Sending stopped: the page was closed.")
+	}) {
+		return
 	}
 	for drained := false; !drained; {
 		select {

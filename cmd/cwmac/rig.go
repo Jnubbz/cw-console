@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"github.com/Jnubbz/cw-console/ops"
+	"github.com/Jnubbz/cw-console/rig"
 	"github.com/Jnubbz/cw-console/rig/ft710"
 )
 
@@ -199,29 +200,27 @@ func (c catSpec) modeName(mode string) string {
 type rigCtl struct{ mu sync.Mutex }
 
 // do sends CAT commands in order; queries (no parameters, like "FA;") return the answer.
+// Operator commands wait for a key lease. Use doAt with PriMeter or PriState to skip
+// instead of waiting.
 func (r *rigCtl) do(c catSpec, cmds ...string) ([]string, error) {
+	return r.doAt(c, rig.PriCommand, cmds...)
+}
+
+func (r *rigCtl) doAt(c catSpec, pri rig.Priority, cmds ...string) ([]string, error) {
 	if c.Port == "" {
 		return nil, errors.New("no CAT port (pick the radio's key port in Setup; on a Yaesu it must be its USB serial port)")
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	conn, err := openCAT(c.Port, c.Baud)
+	out, err := radioBus.exchange(c.Port, c.Baud, pri, cmds)
 	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-	var out []string
-	for _, cmd := range cmds {
-		if err := conn.write(cmd); err != nil {
+		if errors.Is(err, rig.ErrBusy) || errors.Is(err, errPortClosed) {
 			return out, err
 		}
-		if isCATQuery(cmd) {
-			a, err := conn.readReply()
-			if err != nil {
-				return out, fmt.Errorf("the rig didn't answer %s over CAT (check its CAT rate is %d): %v", cmd, c.Baud, err)
-			}
-			out = append(out, a)
+		if len(out) < len(cmds) {
+			return out, fmt.Errorf("the rig didn't answer over CAT (check its CAT rate is %d): %v", c.Baud, err)
 		}
+		return out, err
 	}
 	return out, nil
 }

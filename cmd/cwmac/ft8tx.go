@@ -18,6 +18,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Jnubbz/cw-console/keying"
+	"github.com/Jnubbz/cw-console/rig"
 )
 
 var (
@@ -74,7 +77,8 @@ type ft8Tx struct {
 
 	touched time.Time // last operator action (CQ, call, transmit on)
 	tuning  bool
-	pauseRx func(bool) // stop/restart recording around a transmission
+	watch   keying.Watch // page-disconnect dead-man; Idle nil in tests that don't set it
+	pauseRx func(bool)   // stop/restart recording around a transmission
 }
 
 func ft8TxAvailable() bool {
@@ -118,12 +122,35 @@ func (x *ft8Tx) enable(on bool, port, line string) error {
 	return nil
 }
 
+func (x *ft8Tx) keyed() bool {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	return x.active || x.tuning
+}
+
 func (x *ft8Tx) stopLocked() {
 	if x.abort != nil {
 		close(x.abort)
 		x.abort = nil
 	}
 	x.seq.Stop()
+	x.tuning = false
+}
+
+// deadmanLocked stops FT8 transmit and Tune when the page has been gone for
+// 5 s. transmit's defer unkeys when abort closes. Tune's 30 s cap still applies
+// if the page stays open. Caller holds x.mu.
+func (x *ft8Tx) deadmanLocked() bool {
+	busy := x.active || x.tuning
+	return x.watch.Tick(busy, func() {
+		if x.abort != nil {
+			close(x.abort)
+			x.abort = nil
+		}
+		x.seq.Stop()
+		x.tuning = false
+		x.status = "Sending stopped: the page was closed."
+	})
 }
 
 // heard: decodes of a receive slot, from the receiver (early and full).
@@ -168,6 +195,9 @@ func (x *ft8Tx) tick(off float64) {
 	x.mu.Lock()
 	defer x.mu.Unlock()
 	x.off = off
+	if x.deadmanLocked() {
+		return
+	}
 	if !x.enabled || x.active || x.tuning {
 		return
 	}
@@ -643,14 +673,21 @@ type catPTT struct {
 func (p *catPTT) Key(on bool) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	switch {
-	case on:
-		return p.c.write("TX1;")
-	case p.kenwood:
-		return p.c.write("RX;")
-	default:
-		return p.c.write("TX0;")
+	if p.c == nil || p.c.sp == nil {
+		return errPortClosed
 	}
+	cmd := "TX0;"
+	if on {
+		cmd = "TX1;"
+	} else if p.kenwood {
+		cmd = "RX;"
+	}
+	// PriKey for this write only. A meter poll skips instead of sharing the
+	// write, then runs while the carrier is up.
+	return p.c.bus.acquire(p.c.sp.key, rig.PriKey, func() error {
+		_, err := p.c.sp.transact([]string{cmd})
+		return err
+	})
 }
 
 func (p *catPTT) Close() {

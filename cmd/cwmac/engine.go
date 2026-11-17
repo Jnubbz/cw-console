@@ -19,6 +19,7 @@ import (
 	"github.com/Jnubbz/cw-console/deepcw"
 	"github.com/Jnubbz/cw-console/internal/appdata"
 	"github.com/Jnubbz/cw-console/internal/secrets"
+	"github.com/Jnubbz/cw-console/keying"
 	"github.com/Jnubbz/cw-console/logbook"
 	"github.com/Jnubbz/cw-console/lookup"
 	"github.com/Jnubbz/cw-console/lookup/qrz"
@@ -176,6 +177,7 @@ type Engine struct {
 	book      *logbook.Book
 	bookSeq   int
 	bookCTY   string
+	liveMeter liveMeter
 
 	wf     *cw.Waterfall // waterfall rows (one per state update)
 	wfRow  []byte
@@ -197,6 +199,7 @@ func newEngine(h *hub) *Engine {
 	e.ft8.onDecodes = e.ft8tx.heard
 	e.ft8.skip = e.ft8tx.transmittedIn
 	e.ft8tx.onLog = e.logFT8
+	e.ft8tx.watch = keying.Watch{Idle: h.idleFor}
 	e.ft8tx.pauseRx = e.cap.setPaused
 	if e.st.Decoder == "ai" {
 		e.ensureModelLocked()
@@ -631,6 +634,7 @@ func (e *Engine) decodeFile(name string, data []byte) {
 func (e *Engine) run() {
 	if !testingBinary() {
 		go e.refreshCTY()
+		go e.meterLoop()
 	}
 	tick := time.NewTicker(25 * time.Millisecond)
 	defer tick.Stop()
@@ -777,6 +781,7 @@ func (e *Engine) stateLocked() event {
 	e.fillOpsLocked(s)
 	e.fillContestLocked(s)
 	e.fillCardsLocked(s)
+	s.Meters = e.metersLocked(e.tx.busyLocked() || e.tx.sweeping || e.ft8tx.keyed())
 	if appliance {
 		on, dev, err, want := e.cap.status()
 		if time.Since(e.boxScan) > 2*time.Second { // cheap, but no need 10x a second
@@ -824,6 +829,7 @@ type stateMsg struct {
 	CallSeq   int64     `json:"callSeq"`
 	Card      *cardMsg  `json:"card,omitempty"`
 	Cards     []cardMsg `json:"cards,omitempty"`
+	Meters    *meterMsg `json:"meters,omitempty"`
 	Dupe      bool      `json:"dupe"`
 	TheirWPM  int       `json:"theirWPM"`
 	SendWPM   int       `json:"sendWPM"`

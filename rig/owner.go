@@ -3,9 +3,9 @@
 // ports). Dialects stay where they are: Yaesu bytes in rig/ft710, and later the
 // Kenwood commands that cmd/cwmac speaks and the Hamlib client in sstv-console.
 //
-// cmd/cwmac still opens ports itself. Nothing in this package opens a device or
-// transmits. Phase 2 of docs/unified/PLAN.md routes the existing CAT, keyer and
-// meter polls through Owner, one open file descriptor per port name.
+// Nothing in this package opens a device or transmits. cmd/cwmac's port bus
+// follows Do's lease rules: one open descriptor per port name, meter and state
+// polls get ErrBusy while that port is held, and an operator command waits.
 package rig
 
 import (

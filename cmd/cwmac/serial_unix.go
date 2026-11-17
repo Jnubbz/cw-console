@@ -56,16 +56,18 @@ func openKeyLine(port string, useRTS bool) (keyLine, error) {
 		lastTestLine = &testLine{}
 		return lastTestLine, nil
 	}
-	fd, err := syscall.Open(port, syscall.O_RDWR|syscall.O_NOCTTY|syscall.O_NONBLOCK, 0)
+	sp, err := radioBus.retain(port, 0)
 	if err != nil {
 		return nil, fmt.Errorf("can't open %s: %v (is another program, e.g. Nexus or WSJT-X, using it?)", port, err)
 	}
-	l := &unixLine{fd: fd, useRTS: useRTS, port: port}
-	if err := ioctlInt(fd, tiocmBIC, tiocmDTR|tiocmRTS); err != nil { // FIRST: both lines down
-		syscall.Close(fd)
-		return nil, fmt.Errorf("%s doesn't support DTR/RTS control: %v", port, err)
+	// retain already dropped DTR and RTS. Prove the port can toggle them.
+	if sp.fd >= 0 {
+		if err := ioctlInt(sp.fd, tiocmBIC, tiocmDTR|tiocmRTS); err != nil {
+			radioBus.release(sp)
+			return nil, fmt.Errorf("%s doesn't support DTR/RTS control: %v", port, err)
+		}
 	}
-	return l, nil
+	return &busLine{sp: sp, bus: radioBus, rts: useRTS}, nil
 }
 
 func (l *unixLine) Key(down bool) error {
