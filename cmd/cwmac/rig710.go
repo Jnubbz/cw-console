@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Jnubbz/cw-console/rig"
 	"github.com/Jnubbz/cw-console/rig/ft710"
 )
 
@@ -27,6 +28,7 @@ type rigPanel struct {
 	autoPort string // found by probing (cleared when it stops answering)
 	sweep    sweepState
 	cancel   context.CancelFunc
+	done     chan struct{} // closed after the sweep has unkeyed
 }
 
 type sweepState struct {
@@ -346,7 +348,7 @@ func (e *Engine) startSweep(q sweepRequest) error {
 	if _, err := cfg.Plan(); err != nil {
 		return err
 	}
-	cat, _, err := e.ft710CAT()
+	spec, err := e.ft710Spec()
 	if err != nil {
 		return err
 	}
@@ -379,16 +381,50 @@ func (e *Engine) startSweep(q sweepRequest) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	e.rp.cancel = cancel
+	done := make(chan struct{})
+	e.rp.done = done
 	e.rp.sweep = sweepState{Running: true, Band: q.Band, FromHz: q.FromHz, ToHz: q.ToHz, StepHz: q.StepHz, PowerW: q.PowerW}
 	e.rp.mu.Unlock()
 
 	go func() {
 		defer cancel()
+		// Close done only after Sweep's unkey, and before taking e.mu.
+		// closeLocked waits on done while it still holds e.mu, then closes
+		// the key line. Taking e.mu first would deadlock that wait.
+		finish := func() {
+			e.rp.mu.Lock()
+			if e.rp.done != nil {
+				close(e.rp.done)
+				e.rp.done = nil
+			}
+			e.rp.mu.Unlock()
+		}
+		sp, releaseCAT, herr := radioBus.holdLease(spec.Port, spec.Baud, rig.PriCommand)
+		if herr != nil {
+			finish()
+			e.failSweep(herr)
+			return
+		}
+		defer releaseCAT()
+		// The key line is already open. Hold it only when it is a second
+		// serial port (FT-710 if01), so a poll cannot open it beside the sweep.
+		// test:keyline and GPIO are not serial ports.
+		if bl, ok := line.(*busLine); ok && bl.sp != nil && bl.sp.key != sp.key {
+			_, releaseKey, kerr := radioBus.holdLease(bl.sp.path, 0, rig.PriKey)
+			if kerr != nil {
+				finish()
+				e.failSweep(kerr)
+				return
+			}
+			defer releaseKey()
+		}
+		cat := func(cmds ...string) ([]string, error) { return sp.transact(cmds) }
 		pts, err := ft710.Sweep(ctx, cat, line, cfg, func(p ft710.Point) {
 			e.rp.mu.Lock()
 			e.rp.sweep.Points = append(e.rp.sweep.Points, p)
 			e.rp.mu.Unlock()
 		})
+		finish()
 		e.mu.Lock()
 		e.tx.sweeping = false
 		if err == nil {
@@ -414,10 +450,39 @@ func (e *Engine) startSweep(q sweepRequest) error {
 	return nil
 }
 
+// failSweep leaves the queue free and the panel stopped. The radio was not keyed.
+func (e *Engine) failSweep(err error) {
+	e.mu.Lock()
+	e.tx.sweeping = false
+	e.setNoteLocked("SWR sweep: " + err.Error())
+	e.mu.Unlock()
+	e.rp.mu.Lock()
+	e.rp.sweep.Running = false
+	e.rp.sweep.Error = err.Error()
+	e.rp.mu.Unlock()
+}
+
 func (e *Engine) stopSweep() {
 	e.rp.mu.Lock()
 	if e.rp.cancel != nil {
 		e.rp.cancel()
 	}
 	e.rp.mu.Unlock()
+}
+
+// stopSweepWait cancels the sweep and waits until it has unkeyed. closeLocked
+// calls this before it closes the key line. The caller keeps e.mu; the sweep
+// goroutine closes done before it takes e.mu, so this wait cannot deadlock.
+func (e *Engine) stopSweepWait() {
+	e.stopSweep()
+	e.rp.mu.Lock()
+	done := e.rp.done
+	e.rp.mu.Unlock()
+	if done == nil {
+		return
+	}
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+	}
 }

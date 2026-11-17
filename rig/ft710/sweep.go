@@ -122,8 +122,17 @@ func Sweep(ctx context.Context, cat CAT, key Keyer, c SweepConfig, onPoint func(
 		c.Gap = 150 * time.Millisecond
 	}
 	sleep := c.Sleep
-	if sleep == nil {
-		sleep = time.Sleep
+	wait := func(d time.Duration) {
+		if sleep != nil {
+			sleep(d)
+			return
+		}
+		t := time.NewTimer(d)
+		defer t.Stop()
+		select {
+		case <-ctx.Done():
+		case <-t.C:
+		}
 	}
 
 	// How the radio is now, to put it back.
@@ -164,12 +173,15 @@ func Sweep(ctx context.Context, cat CAT, key Keyer, c SweepConfig, onPoint func(
 		if _, err = cat(fa); err != nil {
 			return pts, err
 		}
-		sleep(c.Settle)
+		wait(c.Settle)
+		if ctx.Err() != nil {
+			return pts, ctx.Err()
+		}
 		if err = key.Key(true); err != nil {
 			return pts, fmt.Errorf("keying: %v", err)
 		}
 		keyed = true
-		sleep(c.KeyDown)
+		wait(c.KeyDown)
 		a, merr := cat(MeterSWR, MeterPO)
 		if err = key.Key(false); err != nil {
 			return pts, fmt.Errorf("unkeying: %v", err)
@@ -191,7 +203,10 @@ func Sweep(ctx context.Context, cat CAT, key Keyer, c SweepConfig, onPoint func(
 		if onPoint != nil {
 			onPoint(p)
 		}
-		sleep(c.Gap)
+		wait(c.Gap)
+		if ctx.Err() != nil {
+			return pts, ctx.Err()
+		}
 	}
 	return pts, nil
 }

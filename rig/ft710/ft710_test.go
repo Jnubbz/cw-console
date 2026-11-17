@@ -160,10 +160,21 @@ func TestMeters(t *testing.T) {
 	if !near(ALC(255), 100) {
 		t.Errorf("ALC: %v", ALC(255))
 	}
+	n, err := SignalRaw("RM1123000;")
+	if err != nil || n != 123 {
+		t.Errorf("RM1: %d %v", n, err)
+	}
+	n, err = SignalRaw("SM0042;")
+	if err != nil || n != 42 {
+		t.Errorf("SM0: %d %v", n, err)
+	}
+	if _, err := SignalRaw("RM6026000;"); err == nil {
+		t.Error("SWR answer accepted as an S reading")
+	}
 }
 
 func TestQueriesAreQueries(t *testing.T) {
-	for _, q := range append(StateQueries, MeterSWR, MeterPO, MeterALC) {
+	for _, q := range append(StateQueries, MeterS, MeterSM, MeterSWR, MeterPO, MeterALC) {
 		if !IsQuery(q) {
 			t.Errorf("%q should be a query", q)
 		}

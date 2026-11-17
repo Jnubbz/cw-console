@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Jnubbz/cw-console/cw"
+	"github.com/Jnubbz/cw-console/rig"
 )
 
 // cwSender: what the sender (tx.go) drives: the box's own keyer (cw.Keyer, timing a key
@@ -48,6 +49,7 @@ type kyEvent struct {
 type catKeyer struct {
 	mu      sync.Mutex
 	conn    *catConn
+	rel     func() // PriKey held while KY is outstanding; nil when the port is free for polls
 	wpm     int
 	sentWPM int
 	staged  []rune
@@ -73,16 +75,14 @@ func newCATKeyer(cs catSpec, wpm int) (*catKeyer, error) {
 		return nil, err
 	}
 	// CAT alive? (a frequency read; the FX-4CR doesn't answer the KY; buffer query)
-	if err := c.write("FA;"); err != nil {
+	a, err := c.ask("FA;", 600*time.Millisecond)
+	if err != nil {
 		c.Close()
 		return nil, err
 	}
-	if a, err := c.readReply(); err != nil || !strings.HasPrefix(a, "FA") {
+	if !strings.HasPrefix(a, "FA") {
 		c.Close()
-		if err == nil {
-			err = fmt.Errorf("answer %q", a)
-		}
-		return nil, fmt.Errorf("the radio didn't answer CAT (check Setup > Radio > CAT is Kenwood, and its port): %v", err)
+		return nil, fmt.Errorf("the radio didn't answer CAT (check Setup > Radio > CAT is Kenwood, and its port): answer %q", a)
 	}
 	k := &catKeyer{conn: c, sent: make(chan rune, 512), errs: make(chan error, 4),
 		quit: make(chan struct{}), done: make(chan struct{})}
@@ -145,11 +145,17 @@ func (k *catKeyer) Abort() {
 	k.mu.Lock()
 	defer k.mu.Unlock()
 	k.staged, k.events = nil, nil
-	if time.Now().Before(k.endAt) {
-		k.conn.write("KY0;")
-		k.conn.write("RX;")
-	}
+	k.unkeyLocked()
 	k.endAt = time.Time{}
+}
+
+// unkeyLocked clears the radio's keyer and returns it to receive. It does not
+// care whether we thought we were keyed: a missed endAt must still unkey.
+func (k *catKeyer) unkeyLocked() {
+	if k.conn == nil || k.conn.sp == nil {
+		return
+	}
+	_, _ = k.conn.sp.transact([]string{"KY0;", "RX;"})
 }
 
 func (k *catKeyer) Close() {
@@ -160,7 +166,48 @@ func (k *catKeyer) Close() {
 	}
 	<-k.done
 	k.Abort()
-	k.conn.Close()
+	k.dropHold()
+	if k.conn != nil {
+		k.conn.Close()
+		k.conn = nil
+	}
+}
+
+// ensureHold takes the key lease for as long as KY is outstanding. Polls on
+// this port get rig.ErrBusy until dropHold.
+func (k *catKeyer) ensureHold() error {
+	k.mu.Lock()
+	if k.rel != nil || k.conn == nil || k.conn.sp == nil {
+		k.mu.Unlock()
+		return nil
+	}
+	sp := k.conn.sp
+	bus := k.conn.bus
+	path, baud := sp.path, sp.baud
+	k.mu.Unlock()
+	_, rel, err := bus.holdLease(path, baud, rig.PriKey)
+	if err != nil {
+		return err
+	}
+	k.mu.Lock()
+	if k.rel == nil {
+		k.rel = rel
+		k.mu.Unlock()
+		return nil
+	}
+	k.mu.Unlock()
+	rel() // lost the race with another ensureHold
+	return nil
+}
+
+func (k *catKeyer) dropHold() {
+	k.mu.Lock()
+	rel := k.rel
+	k.rel = nil
+	k.mu.Unlock()
+	if rel != nil {
+		rel()
+	}
 }
 
 func (k *catKeyer) run() {
@@ -184,13 +231,36 @@ func (k *catKeyer) run() {
 		}
 		n := len(k.staged)
 		flush := n > 0 && (k.staged[n-1] == ' ' || n >= kyChunk || now.Sub(k.lastIn) > kyIdle)
+		var chunk string
 		if flush {
-			chunk := k.staged
-			if len(chunk) > kyChunk {
-				chunk = chunk[:kyChunk]
+			buf := k.staged
+			if len(buf) > kyChunk {
+				buf = buf[:kyChunk]
 			}
-			k.staged = append([]rune(nil), k.staged[len(chunk):]...)
-			err := k.sendLocked(string(chunk), now)
+			chunk = string(buf)
+			k.staged = append([]rune(nil), k.staged[len(buf):]...)
+		}
+		busy := flush || len(k.staged) > 0 || now.Before(k.endAt)
+		idle := !now.Before(k.endAt) && len(k.staged) == 0 && !flush
+		k.mu.Unlock()
+		if busy {
+			if err := k.ensureHold(); err != nil {
+				if chunk != "" {
+					k.mu.Lock()
+					k.staged = append([]rune(chunk), k.staged...)
+					k.mu.Unlock()
+				}
+				select {
+				case k.errs <- err:
+				default:
+				}
+				continue
+			}
+		}
+		if chunk != "" {
+			k.mu.Lock()
+			err := k.sendLocked(chunk, time.Now())
+			k.mu.Unlock()
 			if err != nil {
 				select {
 				case k.errs <- err:
@@ -198,24 +268,31 @@ func (k *catKeyer) run() {
 				}
 			}
 		}
-		k.mu.Unlock()
+		if idle {
+			k.dropHold()
+		}
 	}
 }
 
 func (k *catKeyer) sendLocked(chunk string, now time.Time) error {
+	if k.conn == nil || k.conn.sp == nil {
+		return errPortClosed
+	}
 	if k.wpm != k.sentWPM {
-		if err := k.conn.write(fmt.Sprintf("KS%03d;", k.wpm)); err != nil {
+		if _, err := k.conn.sp.writeRead(fmt.Sprintf("KS%03d;", k.wpm), 0); err != nil {
 			return err
 		}
 		k.sentWPM = k.wpm
 	}
-	if err := k.conn.write("KY " + chunk + ";"); err != nil {
-		return err
-	}
 	// a radio without CW over CAT says "?;" (unknown command); a set gets no answer otherwise
-	if _, err := k.conn.readReplyWithin(60 * time.Millisecond); err != nil && strings.Contains(err.Error(), "rejected") {
-		k.events, k.endAt = nil, time.Time{}
-		return errors.New("the radio refused the CW command KY: it doesn't do CW over CAT (use the key jack)")
+	if _, err := k.conn.sp.writeRead("KY "+chunk+";", 60*time.Millisecond); err != nil {
+		if strings.Contains(err.Error(), "rejected") {
+			k.events, k.endAt = nil, time.Time{}
+			return errors.New("the radio refused the CW command KY: it doesn't do CW over CAT (use the key jack)")
+		}
+		if !strings.Contains(err.Error(), "no answer") {
+			return err
+		}
 	}
 	// predict when each character keys (PARIS: dit = 1.2/WPM s; 3 dits between
 	// characters, 7 between words)

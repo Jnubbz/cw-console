@@ -3,62 +3,64 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"syscall"
 	"time"
 )
 
-type catConn struct{ fd int }
+// catConn is one user of a shared serial port. Close drops the reference.
+// The descriptor stays open while anyone else, including a key lease, holds it.
+type catConn struct {
+	sp  *sharedPort
+	bus *portBus
+}
 
 // openCAT opens a serial port raw at baud, 8N1, with DTR and RTS low (so it can't key).
+// The same device name always returns the same descriptor.
 func openCAT(port string, baud int) (*catConn, error) {
 	if !catBaudOK(baud) {
 		return nil, fmt.Errorf("unsupported baud %d", baud)
 	}
-	fd, err := syscall.Open(port, syscall.O_RDWR|syscall.O_NOCTTY|syscall.O_NONBLOCK, 0)
+	sp, err := radioBus.retain(port, baud)
 	if err != nil {
-		return nil, fmt.Errorf("can't open the CAT port %s: %v", port, err)
+		return nil, err
 	}
-	ioctlInt(fd, tiocmBIC, tiocmDTR|tiocmRTS)
-	if err := catRaw(fd, baud); err != nil { // termios: per OS (cat_termios_*.go)
-		syscall.Close(fd)
-		return nil, fmt.Errorf("CAT port settings: %v", err)
-	}
-	syscall.SetNonblock(fd, false)
-	catFlush(fd) // drop anything pending
-	return &catConn{fd: fd}, nil
+	return &catConn{sp: sp, bus: radioBus}, nil
 }
 
 func (c *catConn) write(s string) error {
-	_, err := syscall.Write(c.fd, []byte(s))
-	time.Sleep(30 * time.Millisecond) // the rig needs a moment between commands
+	if c == nil || c.sp == nil {
+		return errPortClosed
+	}
+	_, err := c.sp.writeRead(s, 0)
 	return err
 }
 
-// readReply reads up to the ';' that ends a CAT answer (600 ms at most).
 func (c *catConn) readReply() (string, error) { return c.readReplyWithin(600 * time.Millisecond) }
 
 func (c *catConn) readReplyWithin(d time.Duration) (string, error) {
-	var b []byte
-	buf := make([]byte, 64)
-	end := time.Now().Add(d)
-	for time.Now().Before(end) {
-		n, err := syscall.Read(c.fd, buf)
-		if err != nil && err != syscall.EINTR {
-			return "", err
-		}
-		b = append(b, buf[:max(n, 0)]...)
-		for i, ch := range b {
-			if ch == ';' {
-				if string(b[:i+1]) == "?;" {
-					return "", errors.New("the rig rejected the command")
-				}
-				return string(b[:i+1]), nil
-			}
-		}
+	if c == nil || c.sp == nil {
+		return "", errPortClosed
 	}
-	return "", errors.New("no answer")
+	c.sp.mu.Lock()
+	defer c.sp.mu.Unlock()
+	if c.sp.closed || c.sp.fd < 0 {
+		return "", errPortClosed
+	}
+	return c.sp.readLocked(d)
 }
 
-func (c *catConn) Close() { syscall.Close(c.fd) }
+// ask writes one command and, when wait > 0, reads the answer, as one section.
+func (c *catConn) ask(s string, wait time.Duration) (string, error) {
+	if c == nil || c.sp == nil {
+		return "", errPortClosed
+	}
+	return c.sp.writeRead(s, wait)
+}
+
+func (c *catConn) Close() {
+	if c == nil || c.sp == nil {
+		return
+	}
+	c.bus.release(c.sp)
+	c.sp = nil
+}

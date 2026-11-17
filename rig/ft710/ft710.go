@@ -198,6 +198,8 @@ func PlayKeyerMemory(ch int) (string, error) {
 
 // Meters (RM).
 const (
+	MeterS   = "RM1;" // S on the main band (CAT manual: RM P1=1)
+	MeterSM  = "SM0;" // S-meter command, used only if RM1 does not answer
 	MeterALC = "RM4;"
 	MeterPO  = "RM5;"
 	MeterSWR = "RM6;"
@@ -210,7 +212,7 @@ var StateQueries = []string{"FA;", "FB;", "MD0;", "FT;", "CF000;", "CF001;", "PC
 func IsQuery(cmd string) bool {
 	switch cmd {
 	case "FA;", "FB;", "MD0;", "FT;", "CF000;", "CF001;", "PC;", "RG0;", "AG0;", "BI;", "AC;", "KS;", "ID;",
-		MeterALC, MeterPO, MeterSWR:
+		MeterS, MeterSM, MeterALC, MeterPO, MeterSWR:
 		return true
 	}
 	return false
@@ -320,6 +322,29 @@ func interp(cal []calPoint, raw int) float64 {
 	}
 	a, b := cal[i-1], cal[i]
 	return a.val + (b.val-a.val)*(x-a.raw)/(b.raw-a.raw)
+}
+
+// SignalRaw reads an S-meter answer: "RM1123;" or "SM0123;" (first three digits).
+func SignalRaw(answer string) (int, error) {
+	a := strings.TrimSpace(answer)
+	for _, p := range []string{"RM1", "SM0", "SM"} {
+		if strings.HasPrefix(a, p) {
+			return meterDigits(a[len(p):], answer)
+		}
+	}
+	return 0, fmt.Errorf("unexpected signal answer %q", answer)
+}
+
+func meterDigits(rest, answer string) (int, error) {
+	rest = strings.TrimSuffix(rest, ";")
+	if len(rest) < 3 {
+		return 0, fmt.Errorf("unexpected signal answer %q", answer)
+	}
+	n, err := strconv.Atoi(rest[:3])
+	if err != nil || n < 0 || n > 255 {
+		return 0, fmt.Errorf("unexpected signal answer %q", answer)
+	}
+	return n, nil
 }
 
 // SWR from an RM6 reading.
