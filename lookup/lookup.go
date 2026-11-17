@@ -8,6 +8,7 @@ package lookup
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"sync"
@@ -99,6 +100,51 @@ func (c *Cache) Get(call string) (Card, bool) {
 		return Card{}, false
 	}
 	return card, true
+}
+
+// Export is the cards currently stored, including ones past TTL. The process
+// writes this next to the log and Import brings it back.
+func (c *Cache) Export() []Card {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]Card, 0, len(c.m))
+	for _, card := range c.m {
+		out = append(out, card)
+	}
+	return out
+}
+
+// Import replaces the memory cache. Cards keep the CachedAt they were stored with.
+func (c *Cache) Import(cards []Card) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.m = map[string]Card{}
+	for _, card := range cards {
+		card.Call = key(card.Call)
+		if card.Call == "" {
+			continue
+		}
+		c.m[card.Call] = card
+	}
+}
+
+// MarshalJSON writes the cache for the data directory.
+func (c *Cache) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Cards []Card `json:"cards"`
+	}{Cards: c.Export()})
+}
+
+// UnmarshalJSON loads a cache written by MarshalJSON.
+func (c *Cache) UnmarshalJSON(b []byte) error {
+	var doc struct {
+		Cards []Card `json:"cards"`
+	}
+	if err := json.Unmarshal(b, &doc); err != nil {
+		return err
+	}
+	c.Import(doc.Cards)
+	return nil
 }
 
 // Put stores a successful lookup. A zero CachedAt is stamped with Now.

@@ -119,6 +119,21 @@ func ft8Available() bool {
 	return err == nil && st.Mode().IsRegular()
 }
 
+// recentMessages is the newest decoded FT8 text, oldest first, for the decode card.
+func (f *ft8Rx) recentMessages() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	n := len(f.decodes)
+	if n > 40 {
+		n = 40
+	}
+	out := make([]string, 0, n)
+	for _, d := range f.decodes[len(f.decodes)-n:] {
+		out = append(out, d.Msg)
+	}
+	return out
+}
+
 func (f *ft8Rx) setOn(on bool, depth int, myCall string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

@@ -9,25 +9,31 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Jnubbz/cw-console/logbook"
 )
 
 // QSO is one logged contact.
 type QSO struct {
-	Call    string
-	Start   time.Time // UTC
-	Freq    string    // MHz as typed ("14.058"), may be empty
-	Band    string    // "20m"
-	RSTSent string
-	RSTRcvd string
-	MyCall  string
-	Park    string // POTA reference for this activation ("US-1234"), may be empty
-	MyState string
-	MyGrid  string
-	Mode    string // "CW" (default when empty) or "FT8"
-	Grid    string // their grid square, when known (FT8)
-	Contest string // ADIF CONTEST_ID ("CQ-WW-CW"), "" for a regular contact
-	CQZ     int    // their CQ zone (the contest exchange), 0 unknown
-	MyCQZ   int    // the zone sent
+	Call      string
+	Start     time.Time // UTC
+	Freq      string    // MHz as typed ("14.058"), may be empty
+	Band      string    // "20m"
+	RSTSent   string
+	RSTRcvd   string
+	MyCall    string
+	Park      string // POTA reference for this activation ("US-1234"), may be empty
+	MyState   string
+	MyGrid    string
+	Mode      string // "CW" (default when empty) or "FT8"
+	Grid      string // their grid square, when known (FT8)
+	State     string // their state or province, when a lookup has one
+	Name      string // their name, when a lookup has one
+	DXCC      int    // ARRL entity number, when a lookup has one
+	CTYPrefix string // cty.dat entity prefix ("K", "DL"); APP_CWCONSOLE_CTY
+	Contest   string // ADIF CONTEST_ID ("CQ-WW-CW"), "" for a regular contact
+	CQZ       int    // their CQ zone (the contest exchange), 0 unknown
+	MyCQZ     int    // the zone sent
 }
 
 func modeOf(q QSO) string {
@@ -110,6 +116,9 @@ func (l *Logbook) Add(q QSO) (dupe bool, err error) {
 	q.Call = strings.ToUpper(strings.TrimSpace(q.Call))
 	if q.Call == "" {
 		return false, errors.New("the Call box is empty")
+	}
+	if _, err := logbook.Format(toLogbook(q)); err != nil {
+		return false, err
 	}
 	q.Start = q.Start.UTC().Truncate(time.Second)
 	dupe = l.IsDupeMode(q.Call, q.Band, modeOf(q), q.Park, q.Start)
@@ -260,8 +269,30 @@ func writeAll(path string, qs []QSO) error {
 	return os.Rename(tmp, path)
 }
 
-// Record formats one ADIF record.
+// Record formats one ADIF record. A callsign logbook accepts is written by
+// logbook.Format (length-prefixed, CR/LF stripped, call checked). A call already
+// in an older log that would not pass that check is still written, so Undo can
+// rewrite the file without dropping the contact.
 func Record(q QSO) string {
+	if s, err := logbook.Format(toLogbook(q)); err == nil {
+		return s
+	}
+	return recordRaw(q)
+}
+
+func toLogbook(q QSO) logbook.QSO {
+	return logbook.QSO{
+		Call: q.Call, Start: q.Start, Freq: q.Freq, Band: q.Band, Mode: q.Mode,
+		RSTSent: q.RSTSent, RSTRcvd: q.RSTRcvd, MyCall: q.MyCall, Grid: q.Grid,
+		State: q.State, MyState: q.MyState, MyGrid: q.MyGrid, DXCC: q.DXCC,
+		CTYPrefix: q.CTYPrefix, Name: q.Name, Park: q.Park, Contest: q.Contest,
+		CQZ: q.CQZ, MyCQZ: q.MyCQZ,
+	}
+}
+
+// recordRaw is the pre-validation writer, used only so an old record still
+// round-trips when the log is rewritten.
+func recordRaw(q QSO) string {
 	var b strings.Builder
 	f := func(name, v string) {
 		if v != "" {
@@ -341,8 +372,10 @@ func fromFields(m map[string]string) QSO {
 	return QSO{Call: m["CALL"], Start: t, Freq: m["FREQ"], Band: strings.ToLower(m["BAND"]),
 		RSTSent: m["RST_SENT"], RSTRcvd: m["RST_RCVD"], MyCall: m["STATION_CALLSIGN"],
 		Park: m["MY_SIG_INFO"], MyState: m["MY_STATE"], MyGrid: m["MY_GRIDSQUARE"],
-		Mode: strings.ToUpper(m["MODE"]), Grid: m["GRIDSQUARE"], Contest: strings.ToUpper(m["CONTEST_ID"]),
-		CQZ: atoiOr0(m["CQZ"]), MyCQZ: atoiOr0(m["MY_CQ_ZONE"])}
+		Mode: strings.ToUpper(m["MODE"]), Grid: m["GRIDSQUARE"], State: strings.ToUpper(m["STATE"]),
+		Name: m["NAME"], DXCC: atoiOr0(m["DXCC"]), CTYPrefix: m["APP_CWCONSOLE_CTY"],
+		Contest: strings.ToUpper(m["CONTEST_ID"]),
+		CQZ:     atoiOr0(m["CQZ"]), MyCQZ: atoiOr0(m["MY_CQ_ZONE"])}
 }
 
 func atoiOr0(s string) int {

@@ -6,7 +6,6 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/Jnubbz/cw-console/contest"
 	"math"
 	"os"
 	"path/filepath"
@@ -15,9 +14,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Jnubbz/cw-console/contest"
 	"github.com/Jnubbz/cw-console/cw"
 	"github.com/Jnubbz/cw-console/deepcw"
 	"github.com/Jnubbz/cw-console/internal/appdata"
+	"github.com/Jnubbz/cw-console/internal/secrets"
+	"github.com/Jnubbz/cw-console/logbook"
+	"github.com/Jnubbz/cw-console/lookup"
+	"github.com/Jnubbz/cw-console/lookup/qrz"
 	"github.com/Jnubbz/cw-console/ops"
 )
 
@@ -155,6 +159,23 @@ type Engine struct {
 	rp rigPanel // FT-710 rig panel and SWR sweep (Mac and Pi box)
 
 	feeds spotFeeds // RBN and POTA spots for the band strip
+
+	// Decode card. The QRZ password is not one of these fields; it stays in
+	// the secrets file. qrzHave is only whether both halves are stored.
+	secOnce   sync.Once
+	sec       *secrets.File
+	secErr    error
+	qrzOnce   sync.Once
+	qrzCh     chan string
+	qrz       *qrz.Client
+	qrzMem    *lookup.Cache
+	qrzHit    map[string]qrzMemo
+	qrzPend   map[string]bool
+	qrzHave   bool
+	qrzFlagAt time.Time
+	book      *logbook.Book
+	bookSeq   int
+	bookCTY   string
 
 	wf     *cw.Waterfall // waterfall rows (one per state update)
 	wfRow  []byte
@@ -608,6 +629,9 @@ func (e *Engine) decodeFile(name string, data []byte) {
 // ---- ticker: line breaks, AI text, TX feeding, state broadcast ----
 
 func (e *Engine) run() {
+	if !testingBinary() {
+		go e.refreshCTY()
+	}
 	tick := time.NewTicker(25 * time.Millisecond)
 	defer tick.Stop()
 	n := 0
@@ -718,6 +742,7 @@ func (e *Engine) logFT8(l *ft8Log, manual bool) {
 	q := ops.QSO{Call: l.Call, Start: time.Now(), Freq: freq, Band: band, RSTSent: l.Sent, RSTRcvd: l.Rcvd,
 		MyCall: ctx.MyCall, Park: e.parkLocked(), MyState: ctx.MyState, MyGrid: e.ft8GridLocked(),
 		Mode: "FT8", Grid: l.Grid}
+	q = e.knownQSO(q, "FT8")
 	dupe, err := e.logbook.Add(q)
 	if err != nil {
 		e.setNoteLocked("couldn't write the log: " + err.Error())
@@ -751,6 +776,7 @@ func (e *Engine) stateLocked() event {
 	e.tx.fillStateLocked(s)
 	e.fillOpsLocked(s)
 	e.fillContestLocked(s)
+	e.fillCardsLocked(s)
 	if appliance {
 		on, dev, err, want := e.cap.status()
 		if time.Since(e.boxScan) > 2*time.Second { // cheap, but no need 10x a second
@@ -796,6 +822,8 @@ type stateMsg struct {
 	Calls     []string  `json:"calls"`
 	Call      string    `json:"call"`
 	CallSeq   int64     `json:"callSeq"`
+	Card      *cardMsg  `json:"card,omitempty"`
+	Cards     []cardMsg `json:"cards,omitempty"`
 	Dupe      bool      `json:"dupe"`
 	TheirWPM  int       `json:"theirWPM"`
 	SendWPM   int       `json:"sendWPM"`

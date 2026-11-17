@@ -106,6 +106,7 @@ func (e *Engine) logLocked(call string) error {
 	q := ops.QSO{Call: call, Start: e.assist.StartTime(call, now), Freq: freq, Band: band,
 		RSTSent: rstSent, RSTRcvd: rstRcvd, MyCall: ctx.MyCall, Park: e.parkLocked(),
 		MyState: ctx.MyState, MyGrid: ctx.MyGrid}
+	q = e.knownQSO(q, "CW")
 	dupe, err := e.logbook.Add(q)
 	if err != nil {
 		return errString("couldn't write the log: " + err.Error())

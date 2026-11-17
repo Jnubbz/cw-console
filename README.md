@@ -57,7 +57,7 @@ Or one at a time:
 ```bash
 GOOS=windows GOARCH=amd64 go build -ldflags "-H windowsgui" -o CW-Decoder.exe ./cmd/cw-decoder
 GOOS=darwin  GOARCH=arm64 go build -o cw-decoder ./cmd/cwmac
-go run ./cmd/cwmac          # on a Mac or Linux desktop: opens http://localhost:7373/
+go run ./cmd/cwmac          # on a Mac or Linux desktop: opens http://localhost:7374/
 ```
 
 The AI decoder needs `third_party/deepcw-engine/model.onnx` and `model.onnx.json` in a

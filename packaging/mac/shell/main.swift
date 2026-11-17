@@ -86,7 +86,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUI
         }
     }
 
-    // The engine prints "CW Decoder running at http://localhost:7373/".
+    // The engine prints the URL it bound, "CW Console running at http://localhost:7374/"
+    // unless -port picked another one. The shell uses that line; it does not assume a port.
     func engineSaid(_ s: String) {
         engineOut += s
         guard pageURL == nil,
