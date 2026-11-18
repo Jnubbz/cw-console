@@ -428,6 +428,7 @@
   <div id="sstvinbox"></div>
 </div>
 <div id="ft8panel">
+  <div id="ft8need" class="dim" hidden></div>
   <div id="slot" title="Where you are in the 15-second FT8 cycle. Red: your transmit slot."><div id="slotfill"></div><div id="slottxt"><span id="slotl"></span><span id="slotr"></span></div></div>
   <div class="row"><span id="ft8info" class="dim" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
     <label for="f8band" title="Moves the rig (DATA-U) to that band's FT8 frequency">Band</label><select id="f8band"><option value="">-</option></select></div>
@@ -1550,10 +1551,18 @@ function applyFT8(st) {
   $("cwfreq").textContent = st.settings.freq ? st.settings.freq + " MHz" : "";
   $("modeseg").style.display = "inline-flex";
   $("setft8").style.display = f && f.have ? "" : "none";
+  const ft8b = document.querySelector('#modeseg [data-m=ft8]');
+  if (ft8b) ft8b.title = (f && f.have) ? "FT8" : ((f && f.hint) || "Install WSJT-X to enable FT8");
   for (const el of document.querySelectorAll(".boxonly")) el.style.display = f && f.have ? "" : "none";
   if (!recent("mode")) $("mode").value = st.settings.mode || "cw";
   syncModeSeg();
   document.body.classList.toggle("ft8", ft);
+  const need = $("ft8need");
+  if (need) {
+    const missingTx = f && f.have && f.tx && !f.tx.avail && f.hint;
+    need.hidden = !missingTx;
+    if (missingTx) need.textContent = f.hint;
+  }
   if (!f || !ft) return;
   applyFT8Tx(st);
   let t = f.lastSlot ? `${f.lastSlot.slice(0,2)}:${f.lastSlot.slice(2,4)}:${f.lastSlot.slice(4)} UTC: ${f.lastN} decoded in ${f.lastSecs} s` : "";
@@ -1768,8 +1777,8 @@ $("f8clearspot").onclick = () => {
 
 $("mode").onchange = () => {
   touched.mode = Date.now();
-  if ($("mode").value === "ft8" && S && !S.appliance) {
-    note("FT8 decode and transmit run on the POTA Pi. This computer can switch between CW and SSTV.");
+  if ($("mode").value === "ft8" && S && S.ft8 && !S.ft8.have) {
+    note(S.ft8.hint || "Install WSJT-X so its jt9 decoder is available, then restart CW Console.");
     $("mode").value = (S.settings && S.settings.mode) || "cw"; syncModeSeg(); return;
   }
   if (($("mode").value === "ft8" || $("mode").value === "sstv") && S && S.txOn && !confirm("CW transmit and Auto-CQ will be switched off. Switch mode?")) { $("mode").value = "cw"; syncModeSeg(); return; }

@@ -10,10 +10,12 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -108,7 +110,7 @@ func (x *ft8Tx) enable(on bool, port, line string) error {
 		return nil
 	}
 	if !ft8TxAvailable() {
-		return errors.New("this box has no FT8 transmitter (update it)")
+		return errors.New("no ft8tx helper was found. Put it on the PATH or set CWBOX_FT8TX. The POTA Pi image includes it; WSJT-X itself does not")
 	}
 	if port == "" {
 		return errors.New("pick the radio's key port first (Setup > Radio > Key port): FT8 uses it for PTT")
@@ -350,8 +352,10 @@ func (x *ft8Tx) transmit(wave []float32, level float64, dev string, line keyLine
 		}
 		return
 	}
-	cmd := exec.Command(aplayPath, "-q", "-D", pdev, "-t", "raw", "-f", "S16_LE", "-r", strconv.Itoa(rate), "-c", strconv.Itoa(ch), "--buffer-time=500000", "--period-time=50000")
-	stdin, err := cmd.StdinPipe()
+	cmd, stdin, wav, err := startFT8Audio(pcm, rate, ch, pdev)
+	if wav != "" {
+		defer os.Remove(wav)
+	}
 	if err != nil {
 		x.setStatus("audio: " + err.Error())
 		return
@@ -365,8 +369,10 @@ func (x *ft8Tx) transmit(wave []float32, level float64, dev string, line keyLine
 	done := make(chan error, 1)
 	started := time.Now()
 	go func() {
-		stdin.Write(pcm)
-		stdin.Close()
+		if stdin != nil {
+			stdin.Write(pcm)
+			stdin.Close()
+		}
 		done <- cmd.Wait()
 	}()
 	want := time.Duration(len(pcm)/(2*ch)) * time.Second / time.Duration(rate)
@@ -419,6 +425,74 @@ func (x *ft8Tx) transmit(wave []float32, level float64, dev string, line keyLine
 		cmd.Process.Kill()
 		<-done
 	}
+}
+
+// startFT8Audio starts playback. An ALSA device uses aplay, which is how the Pi
+// feeds the rig. A desktop with no ALSA name plays the same samples to the
+// default output (afplay, paplay, or aplay's default device). The caller still
+// keys the radio through the port owner.
+func startFT8Audio(pcm []byte, rate, ch int, dev string) (cmd *exec.Cmd, stdin io.WriteCloser, wav string, err error) {
+	if alsaDev(dev) {
+		if _, lookErr := exec.LookPath(aplayPath); lookErr == nil {
+			cmd = exec.Command(aplayPath, "-q", "-D", dev, "-t", "raw", "-f", "S16_LE", "-r", strconv.Itoa(rate), "-c", strconv.Itoa(ch), "--buffer-time=500000", "--period-time=50000")
+			stdin, err = cmd.StdinPipe()
+			if err != nil {
+				return nil, nil, "", err
+			}
+			return cmd, stdin, "", nil
+		}
+	}
+	wav, err = writeWAVTemp(pcm, rate, ch)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("afplay", wav)
+	case "windows":
+		cmd = exec.Command("powershell", "-NoProfile", "-Command",
+			fmt.Sprintf(`(New-Object System.Media.SoundPlayer '%s').PlaySync()`, wav))
+	default:
+		if p, lookErr := exec.LookPath("paplay"); lookErr == nil {
+			cmd = exec.Command(p, wav)
+		} else if p, lookErr := exec.LookPath("aplay"); lookErr == nil {
+			cmd = exec.Command(p, "-q", wav)
+		} else {
+			os.Remove(wav)
+			return nil, nil, "", errors.New("no audio player found (aplay, afplay, or paplay)")
+		}
+	}
+	return cmd, nil, wav, nil
+}
+
+func writeWAVTemp(pcm []byte, rate, ch int) (string, error) {
+	f, err := os.CreateTemp("", "ft8-*.wav")
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	hdr := make([]byte, 44)
+	copy(hdr, "RIFF")
+	binary.LittleEndian.PutUint32(hdr[4:], uint32(36+len(pcm)))
+	copy(hdr[8:], "WAVEfmt ")
+	binary.LittleEndian.PutUint32(hdr[16:], 16)
+	binary.LittleEndian.PutUint16(hdr[20:], 1)
+	binary.LittleEndian.PutUint16(hdr[22:], uint16(ch))
+	binary.LittleEndian.PutUint32(hdr[24:], uint32(rate))
+	binary.LittleEndian.PutUint32(hdr[28:], uint32(rate*ch*2))
+	binary.LittleEndian.PutUint16(hdr[32:], uint16(ch*2))
+	binary.LittleEndian.PutUint16(hdr[34:], 16)
+	copy(hdr[36:], "data")
+	binary.LittleEndian.PutUint32(hdr[40:], uint32(len(pcm)))
+	if _, err = f.Write(hdr); err != nil {
+		os.Remove(f.Name())
+		return "", err
+	}
+	if _, err = f.Write(pcm); err != nil {
+		os.Remove(f.Name())
+		return "", err
+	}
+	return f.Name(), nil
 }
 
 // audioFailed: don't keep keying the rig with no audio: stop the sequence.

@@ -113,7 +113,8 @@ type ft8State struct {
 	LastN  int        `json:"lastN"`
 	LastS  float64    `json:"lastSecs"`
 	Slot   string     `json:"lastSlot"`
-	Have   bool       `json:"have"` // the decoder is installed (only on the box)
+	Have   bool       `json:"have"`           // jt9 was found (WSJT-X or the Pi image)
+	Hint   string     `json:"hint,omitempty"` // how to install jt9 when Have is false
 	Tx     ft8TxState `json:"tx"`
 }
 

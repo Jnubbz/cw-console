@@ -10,8 +10,10 @@ CW Console is licensed under the **GNU Affero General Public License v3.0** (see
   (`third_party/deepcw-engine/model.onnx`), run by this project's own Go ONNX
   interpreter (`deepcw/`). <https://github.com/e04/deepcw-engine> — AGPL-3.0-only.
 - **WSJT-X** by Joe Taylor K1JT and the WSJT Development Group — FT8 decoding and
-  transmit on the Raspberry Pi box use WSJT-X 3.0.1's `jt9` and its FT8 encoder, built
-  from WSJT-X source (not included in this repository).
+  transmit use WSJT-X's `jt9` and the `ft8tx` encoder helper, built from WSJT-X
+  source. Those binaries are not in this repository. The Pi image installs them.
+  A desktop looks for a local WSJT-X install (`jt9` in the app or on the PATH)
+  and does not redistribute it.
   <https://wsjt.sourceforge.io/> — GPL-3.0.
 - **Hamlib** — the FT-710's CAT command details and its meter calibration tables
   (`rig/ft710/`) were checked against Hamlib's FT-710 driver (`rigs/yaesu/newcat.c`,
