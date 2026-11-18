@@ -47,6 +47,7 @@ type Settings struct {
 	TxPort       string         `json:"txPort"`
 	TxLine       string         `json:"txLine"` // "dtr" | "rts" | "cat" (radio's keyer) | "audio" (a tone, rig in USB)
 	AudioDevice  string         `json:"audioDevice"`
+	PlayDevice   string         `json:"playDevice"` // Windows playback device for FT8 ("wave:N" or a name)
 	Ops          ops.Config     `json:"ops"`
 	Freq         string         `json:"freq"`      // what the operator typed: "14.058", "20m"...
 	Mode         string         `json:"mode"`      // "cw" | "ft8" (FT8 on the Pi box only)
@@ -689,6 +690,7 @@ func (e *Engine) run() {
 			e.ft8tx.configure(e.cap.device(), e.st.FT8TxFreq, ft8LevelGain(e.st.FT8Level), e.tx.ctx.MyCall,
 				e.ft8GridLocked(), e.st.FT8CQPota, e.st.FT8AutoCQ)
 			e.ft8tx.setOut(e.st.FT8Out)
+			e.ft8tx.setPlay(e.st.PlayDevice)
 			e.ft8tx.setCATType(e.st.CATType)
 			e.ft8.setEarly(e.ft8tx.isEnabled())
 			e.ft8.setPartner(e.ft8tx.partnerCall())

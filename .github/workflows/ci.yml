@@ -37,8 +37,9 @@ jobs:
       - name: Test shared packages and build the Windows app
         if: runner.os == 'Windows'
         run: |
-          go test -timeout 20m ./cw ./deepcw ./ops ./rig/... ./internal/... ./cmd/cwdecode-file ./cmd/cw-decoder
+          go test -timeout 20m ./cw ./deepcw ./ops ./rig/... ./internal/... ./ft8 ./cmd/cwdecode-file ./cmd/cw-decoder
           go build -ldflags "-H windowsgui" -o CW-Console.exe ./cmd/cw-decoder
+          go build -o cwmac.exe ./cmd/cwmac
 
   package:
     name: Build Windows and Mac packages

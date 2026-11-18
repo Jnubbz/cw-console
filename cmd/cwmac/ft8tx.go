@@ -1,10 +1,11 @@
 package main
 
-// FT8 transmit (the Pi box). The audio is WSJT-X's own: the ft8tx helper (WSJT-X's
-// genft8 + gen_ft8wave, 48 kHz, as the WSJT-X program makes it) writes the waveform;
-// the box keys the rig (DTR/RTS on the key port: FT-710 menu PSK/DATA > RPTT SELECT)
-// and plays the audio into the rig's USB sound card, starting 0.5 s into the slot like
-// WSJT-X. The sequencer (ft8seq.go) decides what to send.
+// FT8 transmit. The waveform is generated in this program (package ft8): 79 symbols
+// of 8-FSK at 48 kHz, the same tone sequence WSJT-X transmits. Set CWBOX_FT8TX to a
+// helper binary to use that instead. The box keys the rig through the shared port
+// owner (DTR/RTS, or CAT TX1;) and plays the audio to the rig's sound device,
+// starting about half a second into the slot. The sequencer (ft8seq.go) decides
+// what to send.
 
 import (
 	"encoding/binary"
@@ -21,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Jnubbz/cw-console/ft8"
 	"github.com/Jnubbz/cw-console/keying"
 	"github.com/Jnubbz/cw-console/rig"
 )
@@ -52,6 +54,7 @@ type ft8Tx struct {
 
 	// from the engine's settings
 	dev     string // ALSA device of the rig (same as receive)
+	play    string // desktop playback device (a Windows waveOut name); "" = default
 	freq    int    // audio frequency, Hz
 	level   float64
 	out     string  // audio format to the rig: "" (48 kHz mono, ALSA converts), "hw48", "hw44"
@@ -84,6 +87,9 @@ type ft8Tx struct {
 }
 
 func ft8TxAvailable() bool {
+	if os.Getenv("CWBOX_FT8TX") == "" {
+		return true // the built-in encoder
+	}
 	st, err := os.Stat(ft8txPath)
 	return err == nil && st.Mode().IsRegular()
 }
@@ -110,7 +116,7 @@ func (x *ft8Tx) enable(on bool, port, line string) error {
 		return nil
 	}
 	if !ft8TxAvailable() {
-		return errors.New("no ft8tx helper was found. Put it on the PATH or set CWBOX_FT8TX. The POTA Pi image includes it; WSJT-X itself does not")
+		return fmt.Errorf("CWBOX_FT8TX is set to %s, which is not a usable encoder. Unset it to use the built-in one", ft8txPath)
 	}
 	if port == "" {
 		return errors.New("pick the radio's key port first (Setup > Radio > Key port): FT8 uses it for PTT")
@@ -260,8 +266,20 @@ func (x *ft8Tx) generate(msg string, freq int) {
 	x.wave, x.waveSent, x.genErr = w, sent, ""
 }
 
-// ft8Wave runs WSJT-X's generator: 79 symbols at 48 kHz, and the text as it will decode.
+// ft8Wave builds one transmission at 48 kHz. The built-in encoder is the default.
+// CWBOX_FT8TX, when set, is the external helper instead (the Pi image's ft8tx).
 func ft8Wave(msg string, freq int) ([]float32, string, error) {
+	if os.Getenv("CWBOX_FT8TX") != "" {
+		return ft8WaveExternal(msg, freq)
+	}
+	w, err := ft8.Wave(msg, freq, 48000)
+	if err != nil {
+		return nil, "", err
+	}
+	return w, strings.ToUpper(strings.Join(strings.Fields(msg), " ")), nil
+}
+
+func ft8WaveExternal(msg string, freq int) ([]float32, string, error) {
 	dir := filepath.Join(ft8Dir, "tx")
 	os.MkdirAll(dir, 0o755)
 	out := filepath.Join(dir, "wave.f32")
@@ -332,9 +350,13 @@ func (x *ft8Tx) transmit(wave []float32, level float64, dev string, line keyLine
 	// flowing, as WSJT-X does: the FT-710's C-Media sound card falls over when its
 	// playback starts while the rig is already transmitting.
 	x.mu.Lock()
-	pauseRx, out := x.pauseRx, x.out
+	pauseRx, out, play := x.pauseRx, x.out, x.play
 	x.mu.Unlock()
 	pdev, rate, ch := audioFormat(dev, out)
+	sink := pdev
+	if !alsaDev(pdev) && play != "" {
+		sink = play // the playback device the operator picked
+	}
 	pcm := makePCM(wave, level, rate, ch)
 	if pauseRx != nil {
 		pauseRx(true)
@@ -352,7 +374,7 @@ func (x *ft8Tx) transmit(wave []float32, level float64, dev string, line keyLine
 		}
 		return
 	}
-	cmd, stdin, wav, err := startFT8Audio(pcm, rate, ch, pdev)
+	playBack, wav, err := startFT8Audio(pcm, rate, ch, sink)
 	if wav != "" {
 		defer os.Remove(wav)
 	}
@@ -360,21 +382,13 @@ func (x *ft8Tx) transmit(wave []float32, level float64, dev string, line keyLine
 		x.setStatus("audio: " + err.Error())
 		return
 	}
-	var stderr strings.Builder
-	cmd.Stderr = &limitedWriter{&stderr, 2000}
-	if err := cmd.Start(); err != nil {
+	if err := playBack.start(); err != nil {
 		x.setStatus("audio: " + err.Error())
 		return
 	}
 	done := make(chan error, 1)
 	started := time.Now()
-	go func() {
-		if stdin != nil {
-			stdin.Write(pcm)
-			stdin.Close()
-		}
-		done <- cmd.Wait()
-	}()
+	go func() { done <- playBack.wait() }()
 	want := time.Duration(len(pcm)/(2*ch)) * time.Second / time.Duration(rate)
 	snap := make(chan string, 1)
 	go func() { // what the kernel says while it plays
@@ -383,8 +397,8 @@ func (x *ft8Tx) transmit(wave []float32, level float64, dev string, line keyLine
 	}()
 	defer func() {
 		took := time.Since(started)
-		d := fmt.Sprintf("%s: aplay -D %s -r %d -c %d, %.1f s of audio, took %.1f s",
-			time.Now().Format("15:04:05"), pdev, rate, ch, want.Seconds(), took.Seconds())
+		d := fmt.Sprintf("%s: %s, %d Hz %d ch, %.1f s of audio, took %.1f s",
+			time.Now().Format("15:04:05"), playBack.label(), rate, ch, want.Seconds(), took.Seconds())
 		select {
 		case sn := <-snap:
 			d += "\n" + sn
@@ -397,16 +411,16 @@ func (x *ft8Tx) transmit(wave []float32, level float64, dev string, line keyLine
 	}()
 	select { // audio is flowing (silence): now key the rig
 	case err := <-done:
-		x.audioFailed(stderr.String(), err)
+		x.audioFailed(playBack.errText(), err)
 		return
 	case <-abort:
-		cmd.Process.Kill()
+		playBack.stop()
 		<-done
 		return
 	case <-time.After(ft8PTTDelay):
 	}
 	if err := line.Key(true); err != nil {
-		cmd.Process.Kill()
+		playBack.stop()
 		<-done
 		x.setStatus("PTT failed: " + err.Error())
 		return
@@ -414,44 +428,88 @@ func (x *ft8Tx) transmit(wave []float32, level float64, dev string, line keyLine
 	select {
 	case err := <-done:
 		if err != nil {
-			x.audioFailed(stderr.String(), err)
+			x.audioFailed(playBack.errText(), err)
 			return
 		}
 		x.setStatus("")
 	case <-abort:
-		cmd.Process.Kill()
+		playBack.stop()
 		<-done
 	case <-time.After(maxDur):
-		cmd.Process.Kill()
+		playBack.stop()
 		<-done
 	}
 }
 
+// ft8Playback is one transmission's audio. start returns once samples are
+// moving (the leading silence), so the caller can key the rig after that.
+type ft8Playback interface {
+	start() error
+	wait() error
+	stop()
+	label() string
+	errText() string
+}
+
+type cmdPlayback struct {
+	cmd    *exec.Cmd
+	pcm    []byte
+	in     io.WriteCloser
+	stderr strings.Builder
+}
+
+func (p *cmdPlayback) start() error {
+	p.cmd.Stderr = &limitedWriter{&p.stderr, 2000}
+	if err := p.cmd.Start(); err != nil {
+		return err
+	}
+	if p.in != nil {
+		go func() {
+			p.in.Write(p.pcm)
+			p.in.Close()
+		}()
+	}
+	return nil
+}
+
+func (p *cmdPlayback) wait() error { return p.cmd.Wait() }
+
+func (p *cmdPlayback) stop() {
+	if p.cmd.Process != nil {
+		p.cmd.Process.Kill()
+	}
+}
+
+func (p *cmdPlayback) label() string   { return strings.Join(p.cmd.Args, " ") }
+func (p *cmdPlayback) errText() string { return p.stderr.String() }
+
 // startFT8Audio starts playback. An ALSA device uses aplay, which is how the Pi
-// feeds the rig. A desktop with no ALSA name plays the same samples to the
-// default output (afplay, paplay, or aplay's default device). The caller still
-// keys the radio through the port owner.
-func startFT8Audio(pcm []byte, rate, ch int, dev string) (cmd *exec.Cmd, stdin io.WriteCloser, wav string, err error) {
+// feeds the rig. Windows plays through waveOut to the named device. Anywhere
+// else, a desktop with no ALSA name plays the same samples to the default
+// output (afplay, paplay, or aplay's default device). The caller still keys
+// the radio through the port owner.
+func startFT8Audio(pcm []byte, rate, ch int, dev string) (ft8Playback, string, error) {
 	if alsaDev(dev) {
 		if _, lookErr := exec.LookPath(aplayPath); lookErr == nil {
-			cmd = exec.Command(aplayPath, "-q", "-D", dev, "-t", "raw", "-f", "S16_LE", "-r", strconv.Itoa(rate), "-c", strconv.Itoa(ch), "--buffer-time=500000", "--period-time=50000")
-			stdin, err = cmd.StdinPipe()
+			cmd := exec.Command(aplayPath, "-q", "-D", dev, "-t", "raw", "-f", "S16_LE", "-r", strconv.Itoa(rate), "-c", strconv.Itoa(ch), "--buffer-time=500000", "--period-time=50000")
+			stdin, err := cmd.StdinPipe()
 			if err != nil {
-				return nil, nil, "", err
+				return nil, "", err
 			}
-			return cmd, stdin, "", nil
+			return &cmdPlayback{cmd: cmd, pcm: pcm, in: stdin}, "", nil
 		}
 	}
-	wav, err = writeWAVTemp(pcm, rate, ch)
-	if err != nil {
-		return nil, nil, "", err
+	if p, ok, err := startPlatformAudio(pcm, rate, ch, dev); ok {
+		return p, "", err
 	}
+	wav, err := writeWAVTemp(pcm, rate, ch)
+	if err != nil {
+		return nil, "", err
+	}
+	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
 		cmd = exec.Command("afplay", wav)
-	case "windows":
-		cmd = exec.Command("powershell", "-NoProfile", "-Command",
-			fmt.Sprintf(`(New-Object System.Media.SoundPlayer '%s').PlaySync()`, wav))
 	default:
 		if p, lookErr := exec.LookPath("paplay"); lookErr == nil {
 			cmd = exec.Command(p, wav)
@@ -459,10 +517,10 @@ func startFT8Audio(pcm []byte, rate, ch int, dev string) (cmd *exec.Cmd, stdin i
 			cmd = exec.Command(p, "-q", wav)
 		} else {
 			os.Remove(wav)
-			return nil, nil, "", errors.New("no audio player found (aplay, afplay, or paplay)")
+			return nil, "", errors.New("no audio player found (aplay, afplay, or paplay)")
 		}
 	}
-	return cmd, nil, wav, nil
+	return &cmdPlayback{cmd: cmd}, wav, nil
 }
 
 func writeWAVTemp(pcm []byte, rate, ch int) (string, error) {
@@ -816,6 +874,12 @@ func playbackSnapshot() string {
 func (x *ft8Tx) setOut(out string) {
 	x.mu.Lock()
 	x.out = out
+	x.mu.Unlock()
+}
+
+func (x *ft8Tx) setPlay(dev string) {
+	x.mu.Lock()
+	x.play = dev
 	x.mu.Unlock()
 }
 

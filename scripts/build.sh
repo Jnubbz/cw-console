@@ -17,6 +17,7 @@ model() { # the DeepCW model next to the app
 W="$OUT/CW-Console-Windows"
 mkdir -p "$W"
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -H windowsgui -X main.appVersion=$VER" -o "$W/CW-Console.exe" ./cmd/cw-decoder
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.appVersion=$VER" -o "$W/CW-Console-Desktop.exe" ./cmd/cwmac
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "$W/cwdecode-file.exe" ./cmd/cwdecode-file
 model "$W/deepcw"
 cp packaging/windows/README.txt "$W/README.txt"; cp LICENSE "$W/LICENSE.txt"; cp NOTICE.md "$W/"

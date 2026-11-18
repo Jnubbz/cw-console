@@ -8,22 +8,18 @@ import (
 	"strings"
 )
 
-// The FT8 engine shells out to WSJT-X's jt9 decoder and to the ft8tx helper the
-// Pi image builds from WSJT-X's encoder. Neither binary is shipped here: WSJT-X
-// is GPL-3.0, this program is AGPL-3.0, and a desktop install already has jt9
-// inside WSJT-X. Running that separate program is not a copy of it.
+// The FT8 engine shells out to WSJT-X's jt9 decoder. Transmit audio is generated
+// in this program. Neither WSJT-X nor the Pi's ft8tx helper is shipped here:
+// WSJT-X is GPL-3.0, this program is AGPL-3.0, and a desktop install already has
+// jt9 inside WSJT-X. Running that separate program is not a copy of it.
 //
-// CWBOX_JT9 and CWBOX_FT8TX still win, so the Pi paths stay put.
+// CWBOX_JT9 still wins for the decoder. CWBOX_FT8TX, when set, uses that helper
+// instead of the built-in encoder (the Pi can keep its image's ft8tx that way).
 
 func init() {
 	if os.Getenv("CWBOX_JT9") == "" {
 		if p := firstRegular(jt9Candidates()); p != "" {
 			jt9Path = p
-		}
-	}
-	if os.Getenv("CWBOX_FT8TX") == "" {
-		if p := firstRegular(ft8txCandidates()); p != "" {
-			ft8txPath = p
 		}
 	}
 	if os.Getenv("CWBOX_FT8DIR") == "" && runtime.GOOS == "windows" {
@@ -76,22 +72,6 @@ func jt9Candidates() []string {
 	return out
 }
 
-func ft8txCandidates() []string {
-	name := "ft8tx"
-	if runtime.GOOS == "windows" {
-		name = "ft8tx.exe"
-	}
-	out := lookPaths([]string{name})
-	if dir := filepath.Dir(jt9Path); dir != "" && dir != "." {
-		out = append(out, filepath.Join(dir, name))
-	}
-	if exe, err := os.Executable(); err == nil {
-		out = append(out, filepath.Join(filepath.Dir(exe), name))
-	}
-	out = append(out, "/usr/bin/"+name, "/usr/local/bin/"+name)
-	return out
-}
-
 func lookPaths(names []string) []string {
 	var out []string
 	for _, n := range names {
@@ -107,17 +87,17 @@ func lookPaths(names []string) []string {
 func ft8InstallHint() string {
 	if ft8Available() {
 		if !ft8TxAvailable() {
-			return "FT8 will decode (jt9 was found). Transmit audio needs the ft8tx helper next to jt9, or CWBOX_FT8TX pointing at it. The POTA Pi image already has it. WSJT-X itself does not include ft8tx."
+			return "FT8 will decode (jt9 was found). CWBOX_FT8TX is set but that encoder was not found, so transmit is off. Unset it to use the built-in encoder."
 		}
 		return ""
 	}
 	switch runtime.GOOS {
 	case "darwin":
-		return "Install WSJT-X from https://wsjt.sourceforge.io/wsjtx.html so /Applications/wsjtx.app is present, then restart CW Console. This program uses that app's jt9 decoder and does not ship a copy."
+		return "Install WSJT-X from https://wsjt.sourceforge.io/wsjtx.html so /Applications/wsjtx.app is present, then restart CW Console. Decoding uses that app's jt9. Transmit is built in. This program does not ship a copy of jt9."
 	case "windows":
-		return `Install WSJT-X so jt9.exe is at C:\WSJT\wsjtx\bin\jt9.exe (or on the PATH), then restart. This program does not ship a copy of jt9.`
+		return `Install WSJT-X so jt9.exe is at C:\WSJT\wsjtx\bin\jt9.exe (or on the PATH), then restart. Decoding uses that jt9. Transmit is built in. This program does not ship a copy of jt9.`
 	default:
-		return "Install WSJT-X so jt9 is on the PATH (the wsjtx package, or the binary from https://wsjt.sourceforge.io/wsjtx.html), then restart CW Console. This program does not ship a copy of jt9."
+		return "Install WSJT-X so jt9 is on the PATH (the wsjtx package, or the binary from https://wsjt.sourceforge.io/wsjtx.html), then restart CW Console. Decoding uses that jt9. Transmit is built in. This program does not ship a copy of jt9."
 	}
 }
 

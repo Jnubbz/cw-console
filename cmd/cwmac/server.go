@@ -357,6 +357,13 @@ func (s *server) routes() *http.ServeMux {
 		}
 		writeJSON(w, s.e.qrzFlags())
 	}))
+	m.HandleFunc("/api/outputs", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		devs := outputDevices()
+		if devs == nil {
+			devs = []outputDev{}
+		}
+		writeJSON(w, devs)
+	}))
 	m.HandleFunc("/api/settings", s.guard(func(w http.ResponseWriter, r *http.Request) {
 		var raw json.RawMessage
 		if err := readJSON(r, &raw); err != nil {

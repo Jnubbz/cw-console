@@ -19,6 +19,7 @@ var serialByID = "/dev/serial/by-id/" // test hook
 type RadioProfile struct {
 	Name        string  `json:"name"`
 	AudioDevice string  `json:"audioDevice"`
+	PlayDevice  string  `json:"playDevice"`
 	TxPort      string  `json:"txPort"`
 	TxLine      string  `json:"txLine"`
 	RigCtl      bool    `json:"rigCtl"`
@@ -31,7 +32,7 @@ type RadioProfile struct {
 }
 
 func (s *Settings) profileNow(name string) RadioProfile {
-	return RadioProfile{Name: name, AudioDevice: s.AudioDevice, TxPort: s.TxPort, TxLine: s.TxLine,
+	return RadioProfile{Name: name, AudioDevice: s.AudioDevice, PlayDevice: s.PlayDevice, TxPort: s.TxPort, TxLine: s.TxLine,
 		RigCtl: s.RigCtl, FT8PTTLine: s.FT8PTTLine, FT8Out: s.FT8Out, FT8Level: s.FT8Level, Pitch: s.Pitch, CATType: s.CATType, CATPort: s.CATPort}
 }
 
@@ -75,7 +76,7 @@ func (p *RadioProfile) normalize() {
 func (s *Settings) useProfile(p RadioProfile) {
 	p.normalize()
 	s.Radio = p.Name
-	s.AudioDevice, s.TxPort, s.TxLine, s.RigCtl = p.AudioDevice, p.TxPort, p.TxLine, p.RigCtl
+	s.AudioDevice, s.PlayDevice, s.TxPort, s.TxLine, s.RigCtl = p.AudioDevice, p.PlayDevice, p.TxPort, p.TxLine, p.RigCtl
 	s.FT8PTTLine, s.FT8Out, s.FT8Level, s.CATType = p.FT8PTTLine, p.FT8Out, p.FT8Level, p.CATType
 	s.CATPort = p.CATPort
 	if p.Pitch > 0 {
