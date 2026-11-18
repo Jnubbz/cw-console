@@ -214,6 +214,21 @@ GOOD TO KNOW
   checked against the plain-math version on every run of the test suite.
 
 
+FT8
+---
+CW-Console-Desktop.exe is the same screen as the Mac app, opened in a browser.
+Decoding uses a WSJT-X install on this PC (jt9.exe). Transmit audio is built
+into the program; WSJT-X's own encoder is not required.
+
+1. Install WSJT-X so jt9.exe is under C:\WSJT\wsjtx\bin (or on the PATH).
+2. Run CW-Console-Desktop.exe and open the page it serves.
+3. Setup > Radio: pick the radio's recording device as Audio input, and its
+   playback device (the same USB codec) as Playback device.
+4. Pick the radio's COM port and DTR or RTS, matching the radio's PTT menu.
+5. Into a dummy load: switch to FT8, tick Transmit, and send CQ. The radio
+   keys for the transmission and unkeys when it ends. Closing the page, or a
+   playback failure, unkeys within 5 seconds.
+
 LICENSES
 --------
 CW Console: GPL-3.0 (LICENSE.txt). The classic decoder and the AI audio handling

@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -143,6 +144,84 @@ func readJSON(r *http.Request, v any) error {
 	return json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(v)
 }
 
+// ft8Routes serves the FT8 panel on the desktop and on the Pi. Keying is
+// ft8tx.enable, which opens the key port through the same owner as CW.
+func (s *server) ft8Routes(m *http.ServeMux, reply func(http.ResponseWriter, error)) {
+	m.HandleFunc("/api/ft8", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			s.e.ft8.clear()
+			w.WriteHeader(204)
+			return
+		}
+		writeJSON(w, s.e.ft8.list())
+	}))
+	m.HandleFunc("/api/ft8/tx", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		var q struct{ On bool }
+		if readJSON(r, &q) != nil {
+			http.Error(w, "bad json", 400)
+			return
+		}
+		s.e.mu.Lock()
+		port, line, mode := s.e.st.TxPort, effectivePTT(s.e.st.TxLine, s.e.st.FT8PTTLine), s.e.st.Mode
+		s.e.mu.Unlock()
+		if q.On && mode != "ft8" {
+			reply(w, errors.New("switch to FT8 first"))
+			return
+		}
+		s.e.mu.Lock()
+		s.e.ft8tx.setCATType(s.e.st.CATType)
+		s.e.mu.Unlock()
+		reply(w, s.e.ft8tx.enable(q.On, port, line))
+	}))
+	m.HandleFunc("/api/ft8/cq", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		reply(w, s.e.ft8tx.startCQ(s.e.ft8.offsetNow()))
+	}))
+	m.HandleFunc("/api/ft8/call", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		var q struct {
+			Msg, Slot string
+			SNR       int
+		}
+		if readJSON(r, &q) != nil {
+			http.Error(w, "bad json", 400)
+			return
+		}
+		reply(w, s.e.ft8tx.call(q.Msg, q.Slot, q.SNR))
+	}))
+	m.HandleFunc("/api/ft8/tune", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		var q struct {
+			On   bool
+			Mode string
+		}
+		if readJSON(r, &q) != nil {
+			http.Error(w, "bad json", 400)
+			return
+		}
+		reply(w, s.e.ft8tx.tune(q.On, q.Mode))
+	}))
+	m.HandleFunc("/api/ft8/bench", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			reply(w, s.e.ft8.benchStart(s.e.ft8tx.isEnabled()))
+			return
+		}
+		b := s.e.ft8.benchState()
+		writeJSON(w, map[string]any{"running": b.Running, "rows": len(b.Rows), "done": b.Done,
+			"text": b.text(), "note": b.Note, "tempC": cpuTempC()})
+	}))
+	m.HandleFunc("/api/ft8/log", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		l, err := s.e.ft8tx.logCandidate()
+		if err != nil {
+			reply(w, err)
+			return
+		}
+		s.e.logFT8(l, true)
+		w.WriteHeader(204)
+	}))
+	m.HandleFunc("/api/ft8/stop", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		s.e.ft8tx.stop()
+		w.WriteHeader(204)
+	}))
+}
+
 func (s *server) routes() *http.ServeMux {
 	m := http.NewServeMux()
 	m.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -278,6 +357,13 @@ func (s *server) routes() *http.ServeMux {
 		}
 		writeJSON(w, s.e.qrzFlags())
 	}))
+	m.HandleFunc("/api/outputs", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		devs := outputDevices()
+		if devs == nil {
+			devs = []outputDev{}
+		}
+		writeJSON(w, devs)
+	}))
 	m.HandleFunc("/api/settings", s.guard(func(w http.ResponseWriter, r *http.Request) {
 		var raw json.RawMessage
 		if err := readJSON(r, &raw); err != nil {
@@ -408,6 +494,7 @@ func (s *server) routes() *http.ServeMux {
 		}
 		writeJSON(w, map[string]string{})
 	}
+	s.ft8Routes(m, reply)
 	m.HandleFunc("/api/call", s.guard(func(w http.ResponseWriter, r *http.Request) {
 		var q struct {
 			Call string

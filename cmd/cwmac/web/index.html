@@ -428,6 +428,7 @@
   <div id="sstvinbox"></div>
 </div>
 <div id="ft8panel">
+  <div id="ft8need" class="dim" hidden></div>
   <div id="slot" title="Where you are in the 15-second FT8 cycle. Red: your transmit slot."><div id="slotfill"></div><div id="slottxt"><span id="slotl"></span><span id="slotr"></span></div></div>
   <div class="row"><span id="ft8info" class="dim" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
     <label for="f8band" title="Moves the rig (DATA-U) to that band's FT8 frequency">Band</label><select id="f8band"><option value="">-</option></select></div>
@@ -571,6 +572,7 @@
     <div class="note">The settings below are saved for the radio picked here. Plug in another radio you've set up and the box switches to it by itself.</div>
     <div class="row"><label for="dev" title="The radio's USB sound card. Auto: the one on the same USB cable as the key port (so each radio hears its own, even with two plugged in)">Audio input</label><select id="dev" style="flex:1;min-width:0;max-width:100%"><option value="">(press Start to list inputs)</option></select>
       <button id="capbtn" title="Start or stop listening to the input">Stop listening</button></div>
+    <div class="row" id="playrow" hidden><label for="playdev" title="Where FT8 transmit audio is played. Pick the radio's playback device (the same USB codec as the input). Windows lists its playback devices here.">Playback device</label><select id="playdev" style="flex:1;min-width:0;max-width:100%"><option value="">Default playback</option></select></div>
     <div class="row"><label for="port" title="The radio's USB serial port: CW keying lines, PTT lines and CAT (on the FT-710, its second port; CAT is on the first)">Key port</label><select id="port" style="flex:1;min-width:0;max-width:100%"></select><button id="rescan" title="Look for ports again">&#8635;</button></div>
     <div class="row"><label for="catport" title="The FT-710's CAT port (its Enhanced COM port, CAT-1, the first of its two), used by the Rig sheet. Auto finds it by asking each USB serial port for the FT-710's ID">CAT port</label><select id="catport" style="flex:1;min-width:0;max-width:100%"><option value="">Auto (find the FT-710)</option></select></div>
     <div class="row"><label for="line" title="How CW keys the rig. DTR/RTS: a line of the key port, rig in CW (FT-710: PC KEYING to match). CAT keyer: the text goes to the radio's own keyer (Kenwood KY). Audio tone: for radios with no key line over USB (FX-4CR): a clean keyed tone into the rig's USB audio, rig in USB">CW keying</label><select id="line"><option value="dtr">DTR</option><option value="rts">RTS</option><option value="cat">CAT keyer</option><option value="audio">Audio tone</option></select></div>
@@ -1161,6 +1163,8 @@ async function startCapture() {
   const id = track.getSettings().deviceId || "";
   await listDevices(id);
   setting({ audioDevice: id });
+  await listOutputs();
+  matchPlayback(track.label || "");
   if (ctx.state !== "running") { try { await ctx.resume(); } catch {} }
   const src = ctx.createMediaStreamSource(stream);
   const mute = ctx.createGain(); mute.gain.value = 0; mute.connect(ctx.destination); // keeps the graph running, silently
@@ -1550,10 +1554,18 @@ function applyFT8(st) {
   $("cwfreq").textContent = st.settings.freq ? st.settings.freq + " MHz" : "";
   $("modeseg").style.display = "inline-flex";
   $("setft8").style.display = f && f.have ? "" : "none";
+  const ft8b = document.querySelector('#modeseg [data-m=ft8]');
+  if (ft8b) ft8b.title = (f && f.have) ? "FT8" : ((f && f.hint) || "Install WSJT-X to enable FT8");
   for (const el of document.querySelectorAll(".boxonly")) el.style.display = f && f.have ? "" : "none";
   if (!recent("mode")) $("mode").value = st.settings.mode || "cw";
   syncModeSeg();
   document.body.classList.toggle("ft8", ft);
+  const need = $("ft8need");
+  if (need) {
+    const missingTx = f && f.have && f.tx && !f.tx.avail && f.hint;
+    need.hidden = !missingTx;
+    if (missingTx) need.textContent = f.hint;
+  }
   if (!f || !ft) return;
   applyFT8Tx(st);
   let t = f.lastSlot ? `${f.lastSlot.slice(0,2)}:${f.lastSlot.slice(2,4)}:${f.lastSlot.slice(4)} UTC: ${f.lastN} decoded in ${f.lastSecs} s` : "";
@@ -1733,6 +1745,38 @@ const lvlText = (v) => (+v <= 0 ? "off" : ((+v - 100) * 0.6).toFixed(0) + " dB")
 bindRange("f8lvl", () => { $("f8lvlv").textContent = lvlText($("f8lvl").value); setting({ ft8Level: +$("f8lvl").value }); });
 bindRange("rlvl", () => { $("rlvlv").textContent = lvlText($("rlvl").value); setting({ ft8Level: +$("rlvl").value }); });
 $("f8out").onchange = async () => { touched.f8out = Date.now(); await setting({ ft8Out: $("f8out").value }); };
+$("playdev").onchange = () => { touched.playdev = Date.now(); setting({ playDevice: $("playdev").value }); };
+let outputsListed = false;
+async function listOutputs() {
+  let devs = [];
+  try { devs = await api("/api/outputs"); } catch { return; }
+  const row = $("playrow"), sel = $("playdev");
+  if (!row || !devs || !devs.length) { if (row) row.hidden = true; return; }
+  const cur = sel.value;
+  sel.innerHTML = "";
+  const def = document.createElement("option"); def.value = ""; def.textContent = "Default playback"; sel.appendChild(def);
+  for (const d of devs) {
+    const o = document.createElement("option");
+    o.value = d.id; o.textContent = d.name || d.id; sel.appendChild(o);
+  }
+  row.hidden = false;
+  const want = (S && S.settings && S.settings.playDevice) || cur || "";
+  if ([...sel.options].some((o) => o.value === want)) sel.value = want;
+}
+function matchPlayback(label) {
+  const sel = $("playdev");
+  if (!sel || sel.options.length < 2 || (S && S.settings && S.settings.playDevice)) return;
+  const words = (label || "").toUpperCase().split(/[^A-Z0-9]+/).filter((w) => w.length >= 4);
+  let best = "", score = 0;
+  for (const o of sel.options) {
+    if (!o.value) continue;
+    const name = o.textContent.toUpperCase();
+    let s = 0;
+    for (const w of words) if (name.includes(w)) s += w.length;
+    if (s > score) { best = o.value; score = s; }
+  }
+  if (best) { sel.value = best; touched.playdev = Date.now(); setting({ playDevice: best }); }
+}
 $("f8ptt").onchange = async () => {
   touched.f8ptt = Date.now(); await setting({ ft8PttLine: $("f8ptt").value });
   if (S && S.ft8 && S.ft8.tx.on) { await api("/api/ft8/tx", { on: false }); const r = await api("/api/ft8/tx", { on: true }); if (r.error) note(r.error); }
@@ -1768,8 +1812,8 @@ $("f8clearspot").onclick = () => {
 
 $("mode").onchange = () => {
   touched.mode = Date.now();
-  if ($("mode").value === "ft8" && S && !S.appliance) {
-    note("FT8 decode and transmit run on the POTA Pi. This computer can switch between CW and SSTV.");
+  if ($("mode").value === "ft8" && S && S.ft8 && !S.ft8.have) {
+    note(S.ft8.hint || "Install WSJT-X so its jt9 decoder is available, then restart CW Console.");
     $("mode").value = (S.settings && S.settings.mode) || "cw"; syncModeSeg(); return;
   }
   if (($("mode").value === "ft8" || $("mode").value === "sstv") && S && S.txOn && !confirm("CW transmit and Auto-CQ will be switched off. Switch mode?")) { $("mode").value = "cw"; syncModeSeg(); return; }
@@ -1865,12 +1909,14 @@ function applySetup(st) {
   if (!recent("f8alog")) $("f8alog").checked = !s.ft8NoAutoLog;
   if (!recent("f8ptt")) $("f8ptt").value = s.ft8PttLine || "cat";
   if (!recent("f8out")) $("f8out").value = s.ft8Out || "";
+  if (!recent("playdev") && $("playdev").options.length > 1) $("playdev").value = s.playDevice || "";
   if (!recent("rlvl") && !recent("f8lvl")) $("rlvl").value = s.ft8Level;
   $("rlvlv").textContent = lvlText(recent("rlvl") ? $("rlvl").value : s.ft8Level);
   if (!recent("f8rig")) $("f8rig").checked = !!s.rigCtl;
   if (document.activeElement !== $("f8dial") && !recent("f8dial")) $("f8dial").value = s.freq || "";
   if (document.activeElement !== $("f8grid") && !recent("f8grid")) $("f8grid").value = s.ft8Grid || "";
   $("f8grid").placeholder = st.myGrid || "EL98";
+  if (!outputsListed) { outputsListed = true; listOutputs(); }
 }
 function applyRadios(s) {
   const list = s.radios || [], sel = $("radiosel");

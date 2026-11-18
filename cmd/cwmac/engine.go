@@ -47,6 +47,7 @@ type Settings struct {
 	TxPort       string         `json:"txPort"`
 	TxLine       string         `json:"txLine"` // "dtr" | "rts" | "cat" (radio's keyer) | "audio" (a tone, rig in USB)
 	AudioDevice  string         `json:"audioDevice"`
+	PlayDevice   string         `json:"playDevice"` // Windows playback device for FT8 ("wave:N" or a name)
 	Ops          ops.Config     `json:"ops"`
 	Freq         string         `json:"freq"`      // what the operator typed: "14.058", "20m"...
 	Mode         string         `json:"mode"`      // "cw" | "ft8" (FT8 on the Pi box only)
@@ -684,13 +685,14 @@ func (e *Engine) run() {
 		e.mu.Lock()
 		e.tx.tickLocked()
 		e.assistTickLocked()
-		e.ft8.setOn(appliance && e.st.Mode == "ft8", e.st.FT8Depth, e.tx.ctx.MyCall)
-		if appliance {
+		e.ft8.setOn(e.st.Mode == "ft8" && ft8Available(), e.st.FT8Depth, e.tx.ctx.MyCall)
+		if e.st.Mode == "ft8" {
 			e.ft8tx.configure(e.cap.device(), e.st.FT8TxFreq, ft8LevelGain(e.st.FT8Level), e.tx.ctx.MyCall,
 				e.ft8GridLocked(), e.st.FT8CQPota, e.st.FT8AutoCQ)
 			e.ft8tx.setOut(e.st.FT8Out)
+			e.ft8tx.setPlay(e.st.PlayDevice)
 			e.ft8tx.setCATType(e.st.CATType)
-			e.ft8.setEarly(e.st.Mode == "ft8" && e.ft8tx.isEnabled())
+			e.ft8.setEarly(e.ft8tx.isEnabled())
 			e.ft8.setPartner(e.ft8tx.partnerCall())
 		}
 		if e.live != nil {
@@ -730,9 +732,7 @@ func (e *Engine) run() {
 		e.mu.Unlock()
 		e.sstvKeep()
 		e.ft8.tick()
-		if appliance {
-			e.ft8tx.tick(e.ft8.offsetNow())
-		}
+		e.ft8tx.tick(e.ft8.offsetNow())
 	}
 }
 
@@ -741,7 +741,7 @@ func clampMode(mode string) string {
 	case "sstv":
 		return "sstv"
 	case "ft8":
-		if appliance {
+		if ft8Available() {
 			return "ft8"
 		}
 	}
@@ -840,6 +840,12 @@ func (e *Engine) stateLocked() event {
 	if e.st.Mode == "sstv" {
 		s.SSTV = e.sstvStatus()
 	}
+	s.FT8 = e.ft8.state()
+	s.FT8.Tx = e.ft8tx.state()
+	s.FT8.Hint = ft8InstallHint()
+	if s.MyCall == "" {
+		s.MyCall = e.tx.ctx.MyCall
+	}
 	if appliance {
 		on, dev, err, want := e.cap.status()
 		if time.Since(e.boxScan) > 2*time.Second { // cheap, but no need 10x a second
@@ -849,8 +855,6 @@ func (e *Engine) stateLocked() event {
 		s.Appliance = &boxState{CaptureOn: on, Device: dev, Want: want, Error: err, Devices: e.boxDevs,
 			TempC: e.boxTemp, Power: e.boxPower, WifiName: e.box.WifiName, DefaultPassword: e.box.isDefault(), Logs: e.boxLogs}
 		s.Running = s.Running && dev != ""
-		s.FT8 = e.ft8.state()
-		s.FT8.Tx = e.ft8tx.state()
 		s.MyCall = e.tx.ctx.MyCall
 		s.MyGrid = e.tx.ctx.MyGrid
 	}

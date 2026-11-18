@@ -167,8 +167,9 @@ Details: `packaging/windows/README.txt`, `packaging/mac/README-Mac.txt`.
 
 ## License
 
-AGPL-3.0. Built on Nexus (GPL-3.0), DeepCW (AGPL-3.0) and, on the Pi box, WSJT-X
-(GPL-3.0). See [NOTICE.md](NOTICE.md) for credits. **You are responsible for what this
-software transmits:** test into a dummy load and stay within your license.
+AGPL-3.0. Built on Nexus (GPL-3.0) and DeepCW (AGPL-3.0). FT8 decoding runs a local
+WSJT-X install (GPL-3.0); transmit audio is built in. See [NOTICE.md](NOTICE.md) for
+credits. **You are responsible for what this software transmits:** test into a dummy
+load and stay within your license.
 
 73 de KN0BLE
