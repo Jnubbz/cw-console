@@ -384,12 +384,15 @@ func Resolve(mode, preset string, lo, hi float64, cols int, lift, rng float64, f
 			v.Span.Cols = 256
 		}
 	default:
-		if mode == "ft8" {
+		switch mode {
+		case "ft8":
 			v.Span = SpanFT8
 			v.Range = 30
 			v.FloorFrom = 200
 			v.FPS = 8
-		} else {
+		case "sstv":
+			v.Span = SpanSSTV
+		default:
 			v.Span = Span{Name: "cw-wide", LoHz: 200, HiHz: 1400, Cols: 241}
 		}
 	}

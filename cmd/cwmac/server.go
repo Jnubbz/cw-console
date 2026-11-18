@@ -544,6 +544,77 @@ func (s *server) routes() *http.ServeMux {
 		}
 		io.WriteString(w, s.e.tx.macroText)
 	}))
+	// ---- SSTV (same page, CW stays the default mode) ----
+	m.HandleFunc("/api/sstv/live", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		b := s.e.ensureSSTV().livePNG()
+		if len(b) == 0 {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Write(b)
+	}))
+	m.HandleFunc("/api/sstv/inbox", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, s.e.ensureSSTV().pictures())
+	}))
+	m.HandleFunc("/api/sstv/pic", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		id := r.URL.Query().Get("id")
+		if !s.e.ensureSSTV().has(id) {
+			http.NotFound(w, r)
+			return
+		}
+		http.ServeFile(w, r, s.e.ensureSSTV().file(id))
+	}))
+	m.HandleFunc("/api/sstv/call", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		var q struct{ ID, Call string }
+		if readJSON(r, &q) != nil || !s.e.sstvSetCall(q.ID, q.Call) {
+			writeJSON(w, map[string]string{"error": "that picture isn't in the inbox"})
+			return
+		}
+		w.WriteHeader(204)
+	}))
+	m.HandleFunc("/api/sstv/log", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		var q struct{ Call string }
+		if readJSON(r, &q) != nil {
+			http.Error(w, "bad json", 400)
+			return
+		}
+		if err := s.e.sstvLog(q.Call); err != nil {
+			writeJSON(w, map[string]string{"error": err.Error()})
+			return
+		}
+		w.WriteHeader(204)
+	}))
+	m.HandleFunc("/api/sstv/tx", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		b, err := io.ReadAll(io.LimitReader(r.Body, 8<<20))
+		if err != nil || len(b) == 0 {
+			http.Error(w, "bad picture", 400)
+			return
+		}
+		id, secs, err := s.e.sstvBegin(b, r.URL.Query().Get("mode"), r.URL.Query().Get("to"))
+		if err != nil {
+			writeJSON(w, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"id": id, "seconds": secs})
+	}))
+	m.HandleFunc("/api/sstv/audio", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		var id int
+		fmt.Sscanf(r.URL.Query().Get("id"), "%d", &id)
+		b := s.e.sstvAudio(id)
+		if len(b) == 0 {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "audio/wav")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Write(b)
+	}))
+	m.HandleFunc("/api/sstv/stop", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		s.e.sstvStop()
+		w.WriteHeader(204)
+	}))
 	// ---- contest ----
 	m.HandleFunc("/api/contest/enter", s.guard(func(w http.ResponseWriter, r *http.Request) {
 		var q struct {

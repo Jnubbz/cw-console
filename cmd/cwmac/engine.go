@@ -171,6 +171,8 @@ type Engine struct {
 	boxPower       powerState
 	ft8            ft8Rx
 	ft8tx          ft8Tx
+	sstv           *receiver
+	sstvSend       sstvSession
 	rig            rigCtl
 
 	rp rigPanel // FT-710 rig panel and SWR sweep (Mac and Pi box)
@@ -265,9 +267,7 @@ func (e *Engine) loadSettings() {
 			s.WPM = 20
 		}
 		s.Ops.Clamp()
-		if s.Mode != "ft8" || !appliance {
-			s.Mode = "cw"
-		}
+		s.Mode = clampMode(s.Mode)
 		clampFT8(&s)
 		e.st = s
 	}
@@ -300,21 +300,24 @@ func (e *Engine) applySettings(raw json.RawMessage) {
 		s.AISpeed = int(deepcw.SpeedAuto)
 	}
 	s.Ops.Clamp()
-	if s.Mode != "ft8" || !appliance {
-		s.Mode = "cw"
-	}
+	s.Mode = clampMode(s.Mode)
 	if s.FT8Depth < 1 || s.FT8Depth > 3 {
 		s.FT8Depth = 3
 	}
 	clampFT8(s)
-	if s.Mode == "ft8" && old.Mode != "ft8" {
-		// The CW keyer and Auto-CQ stand down (FT8 keys the rig itself, when asked).
+	if (s.Mode == "ft8" || s.Mode == "sstv") && old.Mode == "cw" {
+		// Another mode keys the rig itself. The CW keyer and Auto-CQ stand down.
 		e.setAutoCQLocked(false)
 		e.tx.closeLocked()
 	}
 	if s.Mode != "ft8" && old.Mode == "ft8" {
 		e.ft8tx.enable(false, "", "")
-		e.rigToCW()
+		if s.Mode == "cw" {
+			e.rigToCW()
+		}
+	}
+	if s.Mode != "sstv" && old.Mode == "sstv" {
+		e.sstvStop()
 	}
 	if s.Mode == "ft8" && old.Mode != "ft8" {
 		e.rigToFT8(s.FT8Band)
@@ -383,6 +386,11 @@ func (e *Engine) pushAudio(samples []float32, rate int) {
 	if e.st.Mode == "ft8" {
 		e.ft8.setView(e.specViewLocked())
 		e.ft8.push(samples, rate)
+		return
+	}
+	if e.st.Mode == "sstv" {
+		e.noteSpecLocked(samples)
+		e.ensureSSTV().push(samples, rate)
 		return
 	}
 	dec := samples
@@ -712,6 +720,7 @@ func (e *Engine) run() {
 			restart, dev := e.restartCapture, e.st.AudioDevice
 			e.restartCapture = false
 			e.mu.Unlock()
+			e.sstvKeep()
 			if restart && appliance {
 				go e.cap.start(e, dev)
 			}
@@ -719,11 +728,24 @@ func (e *Engine) run() {
 			continue
 		}
 		e.mu.Unlock()
+		e.sstvKeep()
 		e.ft8.tick()
 		if appliance {
 			e.ft8tx.tick(e.ft8.offsetNow())
 		}
 	}
+}
+
+func clampMode(mode string) string {
+	switch mode {
+	case "sstv":
+		return "sstv"
+	case "ft8":
+		if appliance {
+			return "ft8"
+		}
+	}
+	return "cw"
 }
 
 func clampFT8(s *Settings) {
@@ -815,6 +837,9 @@ func (e *Engine) stateLocked() event {
 	e.fillContestLocked(s)
 	e.fillCardsLocked(s)
 	s.Meters = e.metersLocked(e.tx.busyLocked() || e.tx.sweeping || e.ft8tx.keyed())
+	if e.st.Mode == "sstv" {
+		s.SSTV = e.sstvStatus()
+	}
 	if appliance {
 		on, dev, err, want := e.cap.status()
 		if time.Since(e.boxScan) > 2*time.Second { // cheap, but no need 10x a second
@@ -873,6 +898,7 @@ type stateMsg struct {
 	Act       actState  `json:"act"`
 	Appliance *boxState `json:"appliance,omitempty"`
 	FT8       *ft8State `json:"ft8,omitempty"`
+	SSTV      *sstvMsg  `json:"sstv,omitempty"`
 	MyCall    string    `json:"myCall"`
 	MyGrid    string    `json:"myGrid"`
 }
