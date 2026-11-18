@@ -190,8 +190,14 @@
   .arm { padding: 5px 12px 5px 9px; border: 1px solid var(--edge2); border-radius: 999px; color: var(--text) !important; font-weight: 600; }
   .arm:has(input:checked) { border-color: #a5373a; background: #3a1517; }
 
-  /* FT8 */
-  body.ft8 .cwonly { display: none !important; }
+  /* FT8 and SSTV replace the CW transcript. The mode switch stays in the header. */
+  body.ft8 .cwonly, body.sstv .cwonly { display: none !important; }
+  body.sstv #spec { display: block !important; }
+  body.sstv #specbar { display: flex !important; }
+  #sstvpanel { display: none; flex: 1; min-height: 0; flex-direction: column; gap: 8px; }
+  body.sstv #sstvpanel { display: flex; }
+  #sstvlive { width: auto; max-width: 100%; max-height: 360px; background: #000; border-radius: 8px; border: 1px solid var(--edge); }
+  #sstvinbox { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow: auto; }
   #ft8panel { display: none; flex: 1; min-height: 0; flex-direction: column; gap: 8px; }
   body.ft8 #ft8panel { display: flex; }
   #ft8panel > :not(#ft8list) { flex: none; }
@@ -329,8 +335,8 @@
 <header id="top">
   <img id="logo" src="/img/badge96.png" width="36" height="36" alt="" style="display:none">
   <h1>CW Console</h1>
-  <div id="modeseg" style="display:none" role="group" aria-label="Mode"><button data-m="cw" aria-pressed="true">CW</button><button data-m="ft8" aria-pressed="false">FT8</button></div>
-  <select id="mode" title="Mode" hidden><option value="cw">CW</option><option value="ft8">FT8</option></select>
+  <div id="modeseg" role="group" aria-label="Mode"><button data-m="cw" aria-pressed="true">CW</button><button data-m="ft8" aria-pressed="false">FT8</button><button data-m="sstv" aria-pressed="false">SSTV</button></div>
+  <select id="mode" title="Mode" hidden><option value="cw">CW</option><option value="ft8">FT8</option><option value="sstv">SSTV</option></select>
   <span id="utc" title="UTC time (log times are UTC)"></span>
   <span class="spacer"></span>
   <span id="boxinfo" class="dim"></span>
@@ -398,6 +404,29 @@
 </div>
 <div id="status"></div>
 
+<div id="sstvpanel">
+  <div class="row"><span id="sstvstat" class="dim" style="flex:1">Waiting for a picture. The waterfall above is the SSTV span (1100–2400 Hz).</span>
+    <label for="sstvmode">Mode</label><select id="sstvmode" title="SSTV mode to send">
+      <option>Scottie 1</option><option>Scottie 2</option><option>Scottie DX</option>
+      <option>Martin 1</option><option>Martin 2</option>
+      <option>Robot 36</option><option>Robot 72</option>
+      <option>PD120</option><option>PD180</option><option>PD240</option>
+    </select></div>
+  <img id="sstvlive" alt="">
+  <div class="row">
+    <button id="sstvpick" title="Choose a PNG or JPEG to send">Picture…</button>
+    <input id="sstvfile" type="file" accept="image/png,image/jpeg" hidden>
+    <label>To <input id="sstvto" placeholder="callsign" style="width:110px" autocomplete="off" spellcheck="false"></label>
+    <button id="sstvtx" class="primary" title="Key the radio with the existing key port and send this picture">Transmit</button>
+    <button id="sstvstop" class="danger" title="Unkey now">Stop</button>
+  </div>
+  <div class="row">
+    <label>Their call <input id="sstvcall" placeholder="from the picture" style="width:120px" autocomplete="off" spellcheck="false"></label>
+    <button id="sstvlog" title="Write an SSTV contact to the same ADIF log">Log SSTV</button>
+    <span id="sstvpic" class="dim"></span>
+  </div>
+  <div id="sstvinbox"></div>
+</div>
 <div id="ft8panel">
   <div id="slot" title="Where you are in the 15-second FT8 cycle. Red: your transmit slot."><div id="slotfill"></div><div id="slottxt"><span id="slotl"></span><span id="slotr"></span></div></div>
   <div class="row"><span id="ft8info" class="dim" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
@@ -809,6 +838,7 @@ function applyState(st) {
   document.body.classList.toggle("pota", !!(st.appliance || s.potaMode)); // the green field look
   document.body.classList.toggle("boxui", !!st.appliance);
   document.body.classList.toggle("ft8mode", s.mode === "ft8");
+  document.body.classList.toggle("sstv", s.mode === "sstv");
   if (st.wf) cwfPush(st.wf);
   renderLevel(st);
   renderContest(st);
@@ -840,6 +870,7 @@ function applyState(st) {
   renderMeters(st);
   applyBox(st);
   applyFT8(st);
+  applySSTV(st);
   applyRadios(s);
   applySetup(st);
   drawWF(st.ft8, s.ft8TxFreq);
@@ -873,6 +904,7 @@ function renderStatus() {
   else if (S.settings.mode === "ft8" && S.ft8 && S.ft8.tx && S.ft8.tx.active) s = S.ft8.tx.tuning ? "FT8: tuning (steady tone)" : "FT8: transmitting";
   else if (S.appliance && !S.appliance.device) s = S.appliance.error || (S.appliance.captureOn ? "Looking for the radio's audio..." : "Not listening. Press Start.");
   else if (!S.appliance && !capture) s = "Not listening. Pick the radio's audio input and press Start.";
+  else if (S.settings.mode === "sstv") s = (S.sstv && S.sstv.keyed) ? "SSTV: transmitting" : (S.sstv && S.sstv.receiving ? "SSTV: receiving " + (S.sstv.mode || "") : "SSTV");
   else if (S.settings.mode === "ft8") s = ft8Status();
   else if (S.settings.decoder === "ai") s = `${S.status}  |  ~${S.wpm || "--"} WPM, ${S.key || S.signal ? "signal" : "no signal"}`;
   else s = `Listening${capture ? ` (${capture.ctx.sampleRate} Hz)` : ""}   |   Speed: ${S.wpm || "--"} WPM   |   ${S.key || S.signal ? "signal" : "no signal"}`;
@@ -1516,7 +1548,8 @@ function applyFT8(st) {
   $("cwbandrow").style.display = f && f.tx && f.tx.avail && st.settings.rigCtl ? "" : "none";
   if (!recent("cwband")) $("cwband").value = st.settings.cwBand || "";
   $("cwfreq").textContent = st.settings.freq ? st.settings.freq + " MHz" : "";
-  $("modeseg").style.display = $("setft8").style.display = f && f.have ? "" : "none";
+  $("modeseg").style.display = "inline-flex";
+  $("setft8").style.display = f && f.have ? "" : "none";
   for (const el of document.querySelectorAll(".boxonly")) el.style.display = f && f.have ? "" : "none";
   if (!recent("mode")) $("mode").value = st.settings.mode || "cw";
   syncModeSeg();
@@ -1735,9 +1768,70 @@ $("f8clearspot").onclick = () => {
 
 $("mode").onchange = () => {
   touched.mode = Date.now();
-  if ($("mode").value === "ft8" && S && S.txOn && !confirm("CW transmit and Auto-CQ will be switched off. Switch to FT8?")) { $("mode").value = "cw"; syncModeSeg(); return; }
+  if ($("mode").value === "ft8" && S && !S.appliance) {
+    note("FT8 decode and transmit run on the POTA Pi. This computer can switch between CW and SSTV.");
+    $("mode").value = (S.settings && S.settings.mode) || "cw"; syncModeSeg(); return;
+  }
+  if (($("mode").value === "ft8" || $("mode").value === "sstv") && S && S.txOn && !confirm("CW transmit and Auto-CQ will be switched off. Switch mode?")) { $("mode").value = "cw"; syncModeSeg(); return; }
   setting({ mode: $("mode").value, specPreset: "", specLo: 0, specHi: 0, specCols: 0 });
-  document.body.classList.toggle("ft8", $("mode").value === "ft8"); syncModeSeg();
+  document.body.classList.toggle("ft8", $("mode").value === "ft8");
+  document.body.classList.toggle("sstv", $("mode").value === "sstv");
+  syncModeSeg();
+};
+let sstvLive = -1, sstvPics = -1, sstvFile = null, sstvPicId = "";
+function applySSTV(st) {
+  const on = st.settings.mode === "sstv", s = st.sstv;
+  if (!on) return;
+  const el = $("sstvstat");
+  if (s && s.keyed) el.textContent = "Transmitting " + Math.round(s.elapsed || 0) + " / " + Math.round(s.seconds || 0) + " s";
+  else if (s && s.receiving) el.textContent = (s.mode || "SSTV") + "  line " + s.line + " / " + s.lines + (s.note ? "  ·  " + s.note : "");
+  else if (s && s.liveV > 0) el.textContent = (s.note) || "Picture received. The waterfall above is 1100–2400 Hz.";
+  else el.textContent = (s && s.note) || "Waiting for a picture. The waterfall above is 1100–2400 Hz.";
+  document.querySelectorAll(".specpreset option[value='']").forEach((o) => {
+    o.textContent = st.settings.mode === "sstv" ? "SSTV 1100–2400" : st.settings.mode === "ft8" ? "FT8 0–3000" : "Wide 200–1400";
+  });
+  if (s && s.error) el.textContent = s.error;
+  if (s && s.liveV > 0 && s.liveV !== sstvLive) {
+    sstvLive = s.liveV;
+    $("sstvlive").src = "/api/sstv/live?v=" + s.liveV + "&token=" + encodeURIComponent(TOKEN);
+  }
+  if (s && s.picturesV !== sstvPics) { sstvPics = s.picturesV; loadSSTVInbox(); }
+}
+async function loadSSTVInbox() {
+  const list = await api("/api/sstv/inbox");
+  const box = $("sstvinbox");
+  box.replaceChildren();
+  if (!Array.isArray(list) || !list.length) { box.textContent = "No pictures yet."; return; }
+  for (const p of list.slice(0, 12)) {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.textContent = (p.sent ? "sent  " : "") + (p.time || "").replace("T", " ").slice(0, 19) + "  " + p.mode + (p.call ? "  " + p.call : "");
+    row.onclick = () => {
+      sstvPicId = p.id;
+      $("sstvpic").textContent = p.id;
+      $("sstvlive").src = "/api/sstv/pic?id=" + encodeURIComponent(p.id) + "&token=" + encodeURIComponent(TOKEN);
+      if (p.call) { $("sstvcall").value = p.call; api("/api/sstv/call", { id: p.id, call: p.call }); }
+    };
+    box.appendChild(row);
+  }
+}
+$("sstvpick").onclick = () => $("sstvfile").click();
+$("sstvfile").onchange = () => { sstvFile = $("sstvfile").files[0] || null; if (sstvFile) note(sstvFile.name); };
+$("sstvtx").onclick = async () => {
+  if (!sstvFile) { note("Choose a picture first."); return; }
+  const r = await api("/api/sstv/tx?mode=" + encodeURIComponent($("sstvmode").value) + "&to=" + encodeURIComponent($("sstvto").value.trim()), await sstvFile.arrayBuffer());
+  if (r.error) { note(r.error); return; }
+  note("Sending " + $("sstvmode").value + " (" + Math.round(r.seconds) + " s). The radio is keyed.");
+  const a = new Audio("/api/sstv/audio?id=" + r.id + "&token=" + encodeURIComponent(TOKEN));
+  a.onerror = () => api("/api/sstv/stop", "");
+  a.play().catch(() => api("/api/sstv/stop", ""));
+};
+$("sstvstop").onclick = () => api("/api/sstv/stop", "");
+$("sstvlog").onclick = async () => {
+  const call = $("sstvcall").value.trim();
+  if (sstvPicId && call) await api("/api/sstv/call", { id: sstvPicId, call });
+  const r = await api("/api/sstv/log", { call });
+  if (r.error) note(r.error);
 };
 function syncModeSeg() {
   for (const b of $("modeseg").querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.m === $("mode").value));

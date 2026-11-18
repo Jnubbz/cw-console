@@ -113,9 +113,9 @@ func TestResolvePresets(t *testing.T) {
 	if ft8.Span != SpanFT8 || ft8.FloorFrom != 200 || ft8.FPS != 8 {
 		t.Fatalf("ft8 default %+v", ft8)
 	}
-	sstv := Resolve("cw", "sstv", 0, 0, 0, 0, 0, 0, 0)
+	sstv := Resolve("sstv", "", 0, 0, 0, 0, 0, 0, 0)
 	if sstv.Span != SpanSSTV {
-		t.Fatalf("sstv %+v", sstv)
+		t.Fatalf("sstv mode %+v", sstv)
 	}
 	sidetone := Resolve("cw", "cw", 0, 0, 0, 0, 0, 0, 0)
 	if sidetone.Span != SpanCW {
