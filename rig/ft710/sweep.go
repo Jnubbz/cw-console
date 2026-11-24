@@ -62,6 +62,7 @@ func BandOf(hz int) *Band {
 }
 
 type SweepConfig struct {
+	Model                *Model // the radio (nil: FT-710)
 	FromHz, ToHz, StepHz int
 	PowerW               int
 	KeyDown              time.Duration       // carrier per point (default 250 ms)
@@ -135,20 +136,18 @@ func Sweep(ctx context.Context, cat CAT, key Keyer, c SweepConfig, onPoint func(
 		}
 	}
 
+	m := c.Model
+	if m == nil {
+		m = FT710
+	}
 	// How the radio is now, to put it back.
-	saved, err := cat("FA;", "MD0;", "PC;", "BI;", "FT;", "CF000;")
+	saved, err := cat(m.saveQueries()...)
 	if err != nil {
 		return nil, fmt.Errorf("reading the radio before the sweep: %v", err)
 	}
-	if len(saved) != 6 {
-		return nil, fmt.Errorf("reading the radio before the sweep: %d answers", len(saved))
-	}
-	restore := []string{strip(saved[1], "MD0", "MD0"), strip(saved[2], "PC", "PC"), strip(saved[3], "BI", "BI"),
-		strip(saved[4], "FT", "FT"), strip(saved[5], "CF000", "CF000"), saved[0]}
-	for _, r := range restore {
-		if r == "" {
-			return nil, fmt.Errorf("unexpected answer while reading the radio: %q", saved)
-		}
+	restore, err := m.restoreCmds(saved)
+	if err != nil {
+		return nil, fmt.Errorf("reading the radio before the sweep: %v", err)
 	}
 	keyed := false
 	defer func() {
@@ -160,16 +159,16 @@ func Sweep(ctx context.Context, cat CAT, key Keyer, c SweepConfig, onPoint func(
 		}
 	}()
 
-	pw, _ := SetPower(c.PowerW)
+	pw, _ := m.SetPower(c.PowerW, c.FromHz)
 	// Transmit where we tune: no split, clarifier off; CW, break-in on so the key line keys.
-	if _, err = cat(SetSplit(false), SetClar(false, false), "MD03;", pw, SetBreakIn(true)); err != nil {
+	if _, err = cat(m.SetSplit(false), m.SetClar(false, false), "MD03;", pw, SetBreakIn(true)); err != nil {
 		return nil, err
 	}
 	for _, hz := range plan {
 		if ctx.Err() != nil {
 			return pts, ctx.Err()
 		}
-		fa, _ := SetFreqA(hz)
+		fa, _ := m.SetFreqA(hz)
 		if _, err = cat(fa); err != nil {
 			return pts, err
 		}
@@ -198,7 +197,7 @@ func Sweep(ctx context.Context, cat CAT, key Keyer, c SweepConfig, onPoint func(
 		if err != nil {
 			return pts, err
 		}
-		p := Point{Hz: hz, Raw: raw, SWR: SWR(raw), Watts: Watts(po)}
+		p := Point{Hz: hz, Raw: raw, SWR: m.SWR(raw), Watts: m.Watts(po)}
 		pts = append(pts, p)
 		if onPoint != nil {
 			onPoint(p)

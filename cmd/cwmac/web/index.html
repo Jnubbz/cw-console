@@ -314,6 +314,8 @@
   #qVfoB { font: 13px var(--mono); color: var(--dim); }
   #qVfoB .tx { color: var(--red); font-weight: 600; }
   #qBands { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  #qMsg.warnline { color: #e2ae4a; font-size: 12px; line-height: 1.35; margin-top: 6px; }
+  #qMsg.warnline button { margin-top: 4px; min-height: 28px; font-size: 12px; }
   #qBands button, .qgrid button { min-height: 30px; padding: 4px 0; font-variant-numeric: tabular-nums; }
   .qgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
   #qClar { font: 600 14px var(--mono); text-align: center; align-self: center; }
@@ -343,7 +345,7 @@
   <span id="radioname" class="dim" title="The radio profile in use (Setup to change)"></span>
   <span id="lvl" hidden title="Receive audio level"><i></i></span>
   <button id="start" class="primary" title="Start or stop listening to the input">Start</button>
-  <button id="rigbtn" title="FT-710: VFO A/B, split, clarifier, power, tuner and SWR sweep (over CAT)">Rig</button>
+  <button id="rigbtn" title="Yaesu FT-710 / FT-991A: VFO A/B, split, clarifier, power, tuner, band keys and SWR sweep (over CAT)">Rig</button>
   <button id="setupbtn" title="Radio, audio and decoder settings">Setup</button>
   <button id="boxbtn" title="Box settings: Wi-Fi, passwords, update, power" style="display:none">&#9881; Box</button>
   <button id="quit" title="Stop the CW Console app">Quit</button>
@@ -522,7 +524,7 @@
 </div><!-- #maincol -->
 <aside id="side" class="cwonly">
   <div class="sp" id="qRadio">
-    <h3>Radio <span class="spacer"></span><span id="qMode" class="dim" style="letter-spacing:0;text-transform:none"></span><button id="qMore" title="All rig controls and the SWR sweep">More...</button></h3>
+    <h3><span id="qRadioName">Radio</span> <span class="spacer"></span><span id="qMode" class="dim" style="letter-spacing:0;text-transform:none"></span><button id="qMore" title="All rig controls and the SWR sweep">More...</button></h3>
     <div id="qVfo" title="VFO A">-</div>
     <div id="qVfoB">B -</div>
     <div id="qMeters" class="dim" title="S on receive. Power, ALC and SWR only while the radio is keyed."></div>
@@ -574,13 +576,13 @@
       <button id="capbtn" title="Start or stop listening to the input">Stop listening</button></div>
     <div class="row" id="playrow" hidden><label for="playdev" title="Where FT8 transmit audio is played. Pick the radio's playback device (the same USB codec as the input). Windows lists its playback devices here.">Playback device</label><select id="playdev" style="flex:1;min-width:0;max-width:100%"><option value="">Default playback</option></select></div>
     <div class="row"><label for="port" title="The radio's USB serial port: CW keying lines, PTT lines and CAT (on the FT-710, its second port; CAT is on the first)">Key port</label><select id="port" style="flex:1;min-width:0;max-width:100%"></select><button id="rescan" title="Look for ports again">&#8635;</button></div>
-    <div class="row"><label for="catport" title="The FT-710's CAT port (its Enhanced COM port, CAT-1, the first of its two), used by the Rig sheet. Auto finds it by asking each USB serial port for the FT-710's ID">CAT port</label><select id="catport" style="flex:1;min-width:0;max-width:100%"><option value="">Auto (find the FT-710)</option></select></div>
-    <div class="row"><label for="line" title="How CW keys the rig. DTR/RTS: a line of the key port, rig in CW (FT-710: PC KEYING to match). CAT keyer: the text goes to the radio's own keyer (Kenwood KY). Audio tone: for radios with no key line over USB (FX-4CR): a clean keyed tone into the rig's USB audio, rig in USB">CW keying</label><select id="line"><option value="dtr">DTR</option><option value="rts">RTS</option><option value="cat">CAT keyer</option><option value="audio">Audio tone</option></select></div>
+    <div class="row"><label for="catport" title="The radio's CAT port (its Enhanced COM port, the first of its two), used by the Rig sheet. Auto finds it by asking each USB serial port for a Yaesu ID (FT-710 or FT-991A), at 4800-38400 baud">CAT port</label><select id="catport" style="flex:1;min-width:0;max-width:100%"><option value="">Auto (find the radio)</option></select></div>
+    <div class="row"><label for="line" title="How CW keys the rig. DTR/RTS: a line of the key port, rig in CW (FT-710 and FT-991A: PC KEYING to match; FT-991A menu 060). CAT keyer: the text goes to the radio's own keyer (Kenwood KY). Audio tone: for radios with no key line over USB (FX-4CR): a clean keyed tone into the rig's USB audio, rig in USB">CW keying</label><select id="line"><option value="dtr">DTR</option><option value="rts">RTS</option><option value="cat">CAT keyer</option><option value="audio">Audio tone</option></select></div>
     <div class="note" id="audionote" hidden>Audio tone: CW goes out as a clean keyed tone at the decoder's pitch, through the rig's USB audio, keyed by the PTT below (the FX-4CR needs CAT) at the TX level. The rig must be in USB; Rig control puts it there.</div>
     <div class="row boxonly"><label for="f8ptt" title="How the box keys the rig to send audio: FT8, and CW as an audio tone. RTS/DTR: a line of the key port (FT-710: RPTT SELECT to match). CAT: a TX1; command (the FX-4CR needs this: its RTS PTT sends the mic)">PTT</label><select id="f8ptt"><option value="rts">RTS</option><option value="dtr">DTR</option><option value="cat">CAT (TX1;)</option></select></div>
     <div class="row boxonly"><label for="f8out" title="The audio format sent to the rig's USB sound chip (FT8 and audio CW). Auto: 44.1 kHz stereo direct for C-Media chips (FT-710, FX-4CR), 48 kHz mono for others">Audio out</label><select id="f8out"><option value="">Auto</option><option value="plug">48k mono</option><option value="hw48">48k stereo direct</option><option value="hw44">44.1k stereo direct</option></select></div>
     <div class="row boxonly"><label for="rlvl" title="Transmit audio level for FT8 and audio CW, in dB below full scale (the same as Level on the FT8 screen). Raise it until the power stops rising, then back off a little">TX level</label><input id="rlvl" type="range" min="0" max="100" step="1" style="flex:1;min-width:90px;max-width:260px"><span id="rlvlv" class="val"></span></div>
-    <div class="row boxonly"><label for="cattype" title="The radio&#39;s CAT command set, for Rig control and CAT PTT. Yaesu: the FT-710 and most Yaesus. Kenwood: the TS-590 set, which the FX-4CR and others use">CAT</label><select id="cattype"><option value="">Auto</option><option value="yaesu">Yaesu (FT-710)</option><option value="kenwood">Kenwood (FX-4CR)</option></select></div>
+    <div class="row boxonly"><label for="cattype" title="The radio&#39;s CAT command set, for Rig control and CAT PTT. Yaesu: the FT-710 and most Yaesus. Kenwood: the TS-590 set, which the FX-4CR and others use">CAT</label><select id="cattype"><option value="">Auto</option><option value="yaesu">Yaesu (FT-710, FT-991A)</option><option value="kenwood">Kenwood (FX-4CR)</option></select></div>
     <div class="row boxonly"><label for="catcmd" title="Send one CAT command to the radio and see its answer (troubleshooting). Untick Transmit first.">CAT console</label>
       <input id="catcmd" type="text" placeholder="FA;" maxlength="64" autocomplete="off" spellcheck="false" style="width:150px;text-transform:uppercase;font-family:var(--mono)">
       <button id="catsend">Send</button><span id="catout" class="dim" style="font-family:var(--mono)"></span></div>
@@ -1312,7 +1314,7 @@ async function loadPorts() {
   portsLoaded = true;
   syncPortSel();
   const cs = $("catport"), keep = cs.value || wantCatPort;
-  cs.innerHTML = '<option value="">Auto (find the FT-710)</option>';
+  cs.innerHTML = '<option value="">Auto (find the radio)</option>';
   for (const p of ports) {
     if (p.path.startsWith("gpio") || p.path === $("port").value) continue; // never CAT on the key port: it would key the radio
     const o = document.createElement("option"); o.value = p.path; o.textContent = p.label; cs.appendChild(o);
@@ -2176,8 +2178,10 @@ function rigRender(r) {
     return;
   }
   stat.className = "dim"; stat.title = r.port || "";
-  stat.textContent = "FT-710 on " + (r.port || "").split("/").pop();
+  stat.textContent = (r.model || "Radio") + " on " + (r.port || "").split("/").pop() + (r.baud ? ` · ${r.baud} baud` : "");
   const st = r.state; RIG.st = st; swFollow(st); rigFollow(r); qRender(r);
+  bandKeys($("rigBands"), r.bands);
+  if (r.maxPowerW) $("rigPwr").max = r.maxPowerW;
   $("rigA").textContent = fmtVFO(st.freqA); $("rigB").textContent = fmtVFO(st.freqB);
   const band = rigBandOf(st.freqA);
   for (const b of $("rigBands").children) b.setAttribute("aria-pressed", String(b.dataset.band === band));
@@ -2224,14 +2228,24 @@ for (const [id, act] of [["rigAin", "freqA"], ["rigBin", "freqB"]]) {
     if (r && !r.error) $(id).value = "";
   };
 }
-for (const b of ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m"]) {
-  const btn = document.createElement("button"); btn.textContent = b.replace("m", ""); btn.title = b; btn.dataset.band = b;
-  btn.onclick = () => rigDo("band", b);
-  $("rigBands").appendChild(btn);
+// Band keys: the radio's own (the FT-991A adds 2 m and 70 cm). Rebuilt only when the list changes.
+const HF_BANDS = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m"];
+function bandKeys(box, bands) {
+  bands = bands && bands.length ? bands : HF_BANDS;
+  if (box.dataset.bands === bands.join()) return;
+  box.dataset.bands = bands.join(); box.replaceChildren();
+  for (const b of bands) {
+    const btn = document.createElement("button"); btn.dataset.band = b;
+    btn.textContent = b === "70cm" ? "70cm" : b.replace("m", ""); btn.title = b;
+    btn.onclick = () => rigDo("band", b);
+    box.appendChild(btn);
+  }
 }
+bandKeys($("rigBands"));
 function rigBandOf(hz) {
   const edges = [["160m", 1.8e6, 2.0e6], ["80m", 3.5e6, 4.0e6], ["60m", 5.3e6, 5.41e6], ["40m", 7.0e6, 7.3e6], ["30m", 10.1e6, 10.15e6],
-    ["20m", 14.0e6, 14.35e6], ["17m", 18.068e6, 18.168e6], ["15m", 21.0e6, 21.45e6], ["12m", 24.89e6, 24.99e6], ["10m", 28.0e6, 29.7e6], ["6m", 50e6, 54e6]];
+    ["20m", 14.0e6, 14.35e6], ["17m", 18.068e6, 18.168e6], ["15m", 21.0e6, 21.45e6], ["12m", 24.89e6, 24.99e6], ["10m", 28.0e6, 29.7e6], ["6m", 50e6, 54e6],
+    ["2m", 144e6, 148e6], ["70cm", 420e6, 450e6]];
   const e = edges.find(([, lo, hi]) => hz >= lo && hz <= hi); return e ? e[0] : "";
 }
 $("rigMode").onchange = () => { touched.rigMode = Date.now(); rigDo("mode", $("rigMode").value); };
@@ -2504,11 +2518,7 @@ window.addEventListener("resize", stripDraw);
 setInterval(stripTick, 5000); setTimeout(stripTick, 1500);
 
 // ---- side column: the radio, the decoder, who's on the band ----
-for (const b of ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m"]) {
-  const btn = document.createElement("button"); btn.textContent = b.replace("m", ""); btn.title = b; btn.dataset.band = b;
-  btn.onclick = () => rigDo("band", b);
-  $("qBands").appendChild(btn);
-}
+bandKeys($("qBands"));
 function qRender(r) { // from any rig read (the Rig sheet, the strip's poll, a button)
   const msg = $("qMsg");
   if (!r || !r.state) {
@@ -2520,7 +2530,18 @@ function qRender(r) { // from any rig read (the Rig sheet, the strip's poll, a b
   for (const b of $("qRadio").querySelectorAll("button")) b.disabled = false;
   $("qPwr").disabled = $("qRf").disabled = $("qAf").disabled = false;
   msg.className = ""; msg.textContent = ""; msg.title = r.port || "";
+  if (r.warning) { // e.g. the FT-991A's PC KEYING still OFF: CW from here won't key it
+    msg.className = "warnline"; msg.textContent = r.warning + " ";
+    const fix = document.createElement("button"); fix.className = "primary";
+    const want = S && S.settings.txLine === "rts" ? 2 : 3;
+    fix.textContent = "Set it to " + (want === 2 ? "RTS" : "DTR");
+    fix.onclick = () => rigDo("pcKeying", want);
+    msg.appendChild(fix);
+  }
   const st = r.state;
+  bandKeys($("qBands"), r.bands);
+  if (r.maxPowerW) $("qPwr").max = r.maxPowerW;
+  $("qRadioName").textContent = r.model || "Radio";
   $("qVfo").textContent = fmtVFO(st.freqA);
   $("qVfoB").innerHTML = `B ${fmtVFO(st.freqB)}` + (st.split ? ' <span class="tx">TX</span>' : "");
   $("qMode").textContent = st.modeName;

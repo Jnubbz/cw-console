@@ -14,6 +14,8 @@ import (
 // dip at 14.150 MHz while keyed.
 type fakeRig struct {
 	fa, mode, pc, bi, ft, cf string
+	ft991                    bool // FT-991A: FT2/FT3 set split (FT0/FT1 toggle), RT/XT and IF for the clarifier
+	rt, xt                   string
 	keyed                    bool
 	log                      []string
 	failAt                   string
@@ -41,8 +43,28 @@ func (r *fakeRig) cat(cmds ...string) ([]string, error) {
 			out = append(out, "BI"+r.bi+";")
 		case c == "FT;":
 			out = append(out, "FT"+r.ft+";")
-		case c == "CF000;":
+		case c == "CF000;" && !r.ft991:
 			out = append(out, "CF000"+r.cf+";")
+		case c == "IF;" && r.ft991:
+			out = append(out, "IF001"+r.fa+"+0120"+r.rt+r.xt+r.mode+"0000;")
+		case r.ft991 && (strings.HasPrefix(c, "RT") || strings.HasPrefix(c, "XT")):
+			// "RT1;XT0;" arrives as one command string
+			for _, part := range strings.Split(strings.TrimSuffix(c, ";"), ";") {
+				if strings.HasPrefix(part, "RT") {
+					r.rt = part[2:3]
+				} else {
+					r.xt = part[2:3]
+				}
+			}
+		case r.ft991 && strings.HasPrefix(c, "FT"):
+			switch c {
+			case "FT2;":
+				r.ft = "0"
+			case "FT3;":
+				r.ft = "1"
+			default:
+				return out, fmt.Errorf("%s toggles transmit on an FT-991A", c)
+			}
 		case c == MeterSWR:
 			raw := 0
 			if r.keyed {
@@ -179,6 +201,26 @@ func TestSweepPlanLimits(t *testing.T) {
 	for _, b := range Bands {
 		if _, err := (SweepConfig{FromHz: b.FromHz, ToHz: b.ToHz, StepHz: b.StepHz, PowerW: 5}).Plan(); err != nil {
 			t.Errorf("default %s sweep: %v", b.Name, err)
+		}
+	}
+}
+
+func TestSweepRestoresAnFT991A(t *testing.T) {
+	r := newFake()
+	r.ft991, r.rt, r.xt, r.ft, r.fa = true, "1", "0", "1", "007030000"
+	k := &fakeKey{r: r}
+	_, err := Sweep(context.Background(), r.cat, k,
+		SweepConfig{Model: FT991A, FromHz: 7_000_000, ToHz: 7_300_000, StepHz: 10_000, PowerW: 5, Sleep: noSleep}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Split was on (FT1; read back): it goes back with FT3;, never FT1; (a TX toggle there).
+	if r.keyed || r.ft != "1" || r.rt != "1" || r.xt != "0" || r.fa != "007030000" || r.mode != "7" || r.pc != "100" {
+		t.Fatalf("radio not restored: %+v", r)
+	}
+	for _, c := range r.log {
+		if strings.HasPrefix(c, "CF") {
+			t.Fatalf("sent the FT-710's clarifier command %q to an FT-991A", c)
 		}
 	}
 }
