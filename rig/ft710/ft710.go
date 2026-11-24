@@ -21,7 +21,7 @@ import (
 	"strings"
 )
 
-// ID is what the FT-710 answers to "ID;".
+// ID is what the FT-710 answers to "ID;". (Model has the others: ModelForID.)
 const ID = "ID0800;"
 
 // Mode codes for MD0<code>; (main band).
@@ -212,7 +212,8 @@ var StateQueries = []string{"FA;", "FB;", "MD0;", "FT;", "CF000;", "CF001;", "PC
 func IsQuery(cmd string) bool {
 	switch cmd {
 	case "FA;", "FB;", "MD0;", "FT;", "CF000;", "CF001;", "PC;", "RG0;", "AG0;", "BI;", "AC;", "KS;", "ID;",
-		MeterS, MeterSM, MeterALC, MeterPO, MeterSWR:
+		MeterS, MeterSM, MeterALC, MeterPO, MeterSWR,
+		"IF;", "EX060;": // FT-991A: clarifier (IF) and PC KEYING (menu 060)
 		return true
 	}
 	return false
@@ -275,16 +276,7 @@ func ParseState(a []string) (State, error) {
 	if s.AFGain, err = gainAfter(a[8], "AG0"); err != nil {
 		return s, err
 	}
-	s.RXFreq, s.TXFreq = s.FreqA, s.FreqA
-	if s.Split {
-		s.TXFreq = s.FreqB
-	}
-	if s.ClarRX {
-		s.RXFreq += s.ClarHz
-	}
-	if s.ClarTX {
-		s.TXFreq += s.ClarHz
-	}
+	s.finish()
 	return s, nil
 }
 

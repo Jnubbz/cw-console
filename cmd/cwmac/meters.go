@@ -26,7 +26,8 @@ type meterSched struct {
 	txIdx     int
 	stateIdx  int
 	stateAt   time.Time
-	UseSM     bool // RM1 failed; ask with SM0 instead
+	UseSM     bool     // RM1 failed; ask with SM0 instead
+	Queries   []string // the radio's state queries (nil: the FT-710's)
 }
 
 // next returns the command to send, or "" if the caller should only wait.
@@ -57,11 +58,15 @@ func (s *meterSched) next(now time.Time, keyed bool) (cmd string, pri rig.Priori
 		s.stateAt = now
 		s.stateIdx = 0
 	}
-	if !s.stateAt.IsZero() && s.stateIdx < len(ft710.StateQueries) {
-		cmd = ft710.StateQueries[s.stateIdx]
+	queries := s.Queries
+	if queries == nil {
+		queries = ft710.StateQueries
+	}
+	if !s.stateAt.IsZero() && s.stateIdx < len(queries) {
+		cmd = queries[s.stateIdx]
 		s.stateIdx++
 		s.last = now
-		if s.stateIdx == len(ft710.StateQueries) {
+		if s.stateIdx == len(queries) {
 			s.stateAt = time.Time{}
 			s.nextState = now.Add(stateEvery)
 		}
@@ -133,6 +138,7 @@ func (e *Engine) meterLoop() {
 	var sched meterSched
 	for {
 		keyed := e.radioKeyed()
+		sched.Queries = e.rigModel().StateQueries()
 		cmd, pri, wait := sched.next(time.Now(), keyed)
 		if cmd != "" {
 			if spec, ok := e.meterPort(); ok {
@@ -157,6 +163,7 @@ func (e *Engine) meterLoop() {
 }
 
 func (e *Engine) storeMeter(cmd, answer string) {
+	m := e.rigModel() // its meter scales (before e.mu: rigModel takes rp.mu)
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	switch cmd {
@@ -166,7 +173,7 @@ func (e *Engine) storeMeter(cmd, answer string) {
 		}
 	case ft710.MeterPO:
 		if n, err := ft710.MeterRaw(answer, cmd); err == nil {
-			e.liveMeter.watts, e.liveMeter.hasPO = ft710.Watts(n), true
+			e.liveMeter.watts, e.liveMeter.hasPO = m.Watts(n), true
 		}
 	case ft710.MeterALC:
 		if n, err := ft710.MeterRaw(answer, cmd); err == nil {
@@ -174,7 +181,7 @@ func (e *Engine) storeMeter(cmd, answer string) {
 		}
 	case ft710.MeterSWR:
 		if n, err := ft710.MeterRaw(answer, cmd); err == nil {
-			e.liveMeter.swr, e.liveMeter.hasSWR = ft710.SWR(n), true
+			e.liveMeter.swr, e.liveMeter.hasSWR = m.SWR(n), true
 		}
 	}
 }

@@ -104,13 +104,22 @@ there in CW and put the call in the Call box. On the right, **Heard by N skimmer
 copying your own call (click for the list). RBN logs in with MYCALL from the macros
 (`telnet.reversebeacon.net:7000`); POTA spots come from `api.pota.app` once a minute.
 
-## The Rig sheet (FT-710)
+## The Rig sheet (FT-710, FT-991A)
 
-**Rig** in the top bar talks to the FT-710 over CAT on its *Enhanced* COM port (CAT-1, the
-first of its two USB serial ports; the key port is the second). Setup > Radio > **CAT port**
-is Auto by default: the app asks each USB serial port for the FT-710's ID. The radio's
-CAT-1 RATE must be 38400 (its factory setting; Setup menu > OPERATION SETTING > GENERAL).
-Quit WSJT-X or other CAT programs first: only one program can have the port open.
+**Rig** in the top bar talks to the radio over CAT on its *Enhanced* COM port (the first of
+its two USB serial ports; the key port is the second). Setup > Radio > **CAT port** is Auto
+by default: the app asks each USB serial port for a Yaesu ID at 38400, 4800, 9600 and 19200
+baud, so the radio's CAT rate can stay where it is (FT-710: CAT-1 RATE, 38400 from the
+factory; FT-991A: menu 031 CAT RATE, 4800 from the factory). Which radio it is comes from
+that answer, and the panel follows it. Quit WSJT-X or other CAT programs first: only one
+program can have the port open.
+
+**FT-991A:** the band keys add **2 m** and **70 cm**, landing in the CW segments of the
+ARRL band plan (144.075 and 432.085 MHz) in CW-U; power tops out at 50 W there; the tuner
+is HF and 6 m only. Key-line CW needs menu **060 PC KEYING** on the line the app keys
+(DTR by default). It ships OFF, so the Radio panel says so and sets it with one click.
+2 m and 70 cm aren't swept (a sweep there would key carriers across repeater inputs and the
+satellite segment).
 
 The **SWR sweep** keys the radio the way CW does (DTR/RTS on the key port, break-in on), so
 turn on Transmit first. It sends a 250 ms carrier at 5 or 10 W per step, in CW (allowed

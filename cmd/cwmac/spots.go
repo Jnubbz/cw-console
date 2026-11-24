@@ -12,14 +12,31 @@ import (
 	"github.com/Jnubbz/cw-console/spots"
 )
 
-// stripBands: the CW part of each band, kHz, the strip's scale.
+// stripBands: the CW part of each band, kHz, the strip's scale. Land: where a band key
+// puts the dial (0: the middle). 2 m and 70 cm from the ARRL band plan: 144.000-144.050 EME,
+// 144.050-144.100 general CW; 432.000-432.070 EME, 432.070-432.100 weak-signal CW.
 var stripBands = []struct {
 	Band     string
 	From, To float64
+	Land     float64
 }{
-	{"160m", 1800, 1850}, {"80m", 3500, 3600}, {"40m", 7000, 7070}, {"30m", 10100, 10140},
-	{"20m", 14000, 14070}, {"17m", 18068, 18100}, {"15m", 21000, 21070}, {"12m", 24890, 24930},
-	{"10m", 28000, 28080}, {"6m", 50000, 50100},
+	{"160m", 1800, 1850, 0}, {"80m", 3500, 3600, 0}, {"40m", 7000, 7070, 0}, {"30m", 10100, 10140, 0},
+	{"20m", 14000, 14070, 0}, {"17m", 18068, 18100, 0}, {"15m", 21000, 21070, 0}, {"12m", 24890, 24930, 0},
+	{"10m", 28000, 28080, 0}, {"6m", 50000, 50100, 0}, {"2m", 144000, 144100, 144075}, {"70cm", 432000, 432100, 432085},
+}
+
+// cwMidHz: where a band key lands, Hz: the middle of the band's CW segment (or its Land),
+// 0 for a band without one here (60 m).
+func cwMidHz(band string) int {
+	for _, b := range stripBands {
+		if b.Band == band {
+			if b.Land > 0 {
+				return int(b.Land) * 1000
+			}
+			return int((b.From+b.To)/2) * 1000
+		}
+	}
+	return 0
 }
 
 type spotFeeds struct {

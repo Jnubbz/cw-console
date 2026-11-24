@@ -63,11 +63,12 @@ func TestCATNeverOnAStandardPort(t *testing.T) {
 	defer func() { dataDir = "" }()
 	e := newEngine(newHub())
 	e.st.TxPort, e.st.CATPort = "/dev/cu.SLAB_USBtoUART8", "/dev/cu.usbserial-01AE6E901" // CAT set to a Standard port
-	if s, err := e.ft710Spec(); err == nil && s.Port == "/dev/cu.usbserial-01AE6E901" {
+	// (The port choice; which radio is on it, and its rate, is asked of the radio after.)
+	if p, err := e.yaesuPort(); err == nil && p == "/dev/cu.usbserial-01AE6E901" {
 		t.Fatal("CAT on a Standard (keying) port")
 	}
 	e.st.TxPort, e.st.CATPort = "/dev/cu.usbserial-01AE6E901", ""
-	if s, err := e.ft710Spec(); err != nil || s.Port != "/dev/cu.usbserial-01AE6E900" {
-		t.Fatalf("auto pairing: %+v %v", s, err)
+	if p, err := e.yaesuPort(); err != nil || p != "/dev/cu.usbserial-01AE6E900" {
+		t.Fatalf("auto pairing: %q %v", p, err)
 	}
 }
