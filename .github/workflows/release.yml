@@ -47,4 +47,4 @@ jobs:
         run: |
           gh release create "v$VERSION" dist/CW-Console-Mac.zip dist/CW-Console-Windows.zip \
             dist/latest.json dist/latest.json.sig \
-            --title "CW Console $VERSION" --generate-notes --latest
+            --target "$GITHUB_SHA" --title "CW Console $VERSION" --generate-notes --latest
