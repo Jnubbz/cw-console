@@ -147,6 +147,21 @@ Where the two radios differ (break-in type is menu 02-01-16 on the FT-710 and 05
 FT-991A; the delay is a step number on one and milliseconds on the other; the width tables and
 IF shift formats differ) the app uses each radio's own form.
 
+### MCW: CW that FM radios hear (FT-991A)
+
+CW keyed on the key line is a plain carrier: an FM radio hears only its noise go quiet.
+For FM radios (a handheld, a DM-32UV), send **MCW**, a keyed tone over FM:
+
+- Setup > Radio: **CW keying** Audio tone, **PTT** RTS, **Playback device** the radio's
+  USB AUDIO CODEC (not the Mac's speakers), and the **TX level** for the deviation.
+- On the FT-991A: mode **DATA-FM**; menu 070 DATA IN SELECT REAR, 071 DATA PTT SELECT
+  RTS, 072 DATA PORT SELECT USB.
+- The band keys keep DATA-FM (and the band's last frequency) while CW keying is Audio
+  tone. In USB, Audio tone is sent like CW instead (the dial a pitch below the CW frequency).
+
+On the Mac the tone is played by `cw-play` (packaging/mac/play), a small native player
+inside CW Console.app; the Pi box uses aplay.
+
 ## Contesting (CQ WW DX CW)
 
 Setup > Operating > **Contest: CQ WW DX (CW)**. Set the zone you send (Florida: 5),

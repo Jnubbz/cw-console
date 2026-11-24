@@ -455,13 +455,28 @@ type cmdPlayback struct {
 	cmd    *exec.Cmd
 	pcm    []byte
 	in     io.WriteCloser
+	ready  bool // the player says "ready" once it is playing (the Mac's cw-play)
 	stderr strings.Builder
 }
 
 func (p *cmdPlayback) start() error {
 	p.cmd.Stderr = &limitedWriter{&p.stderr, 2000}
+	var out io.Reader
+	if p.ready {
+		o, err := p.cmd.StdoutPipe()
+		if err != nil {
+			return err
+		}
+		out = o
+	}
 	if err := p.cmd.Start(); err != nil {
 		return err
+	}
+	if out != nil {
+		if err := waitReady(out, 3*time.Second); err != nil {
+			p.cmd.Process.Kill()
+			return err
+		}
 	}
 	if p.in != nil {
 		go func() {

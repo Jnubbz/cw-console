@@ -415,6 +415,17 @@ func (e *Engine) doRig(a rigAction) rigReply {
 		return rigReply{Error: err.Error()}
 	}
 	m := e.rigModel()
+	e.mu.Lock()
+	audio, pitch := e.st.TxLine == "audio", e.st.Pitch
+	e.mu.Unlock()
+	fmWas := "" // audio-tone CW in FM is MCW: a band key keeps that FM mode
+	if a.Action == "band" && audio {
+		if ans, err := cat("MD0;"); err == nil && len(ans) == 1 {
+			if md := strings.TrimSuffix(strings.TrimPrefix(ans[0], "MD0"), ";"); fmMode(md) {
+				fmWas = md
+			}
+		}
+	}
 	var cmds []string
 	switch a.Action {
 	case "clarRx", "clarTx":
@@ -458,7 +469,25 @@ func (e *Engine) doRig(a rigAction) rigReply {
 		// Land in the middle of the band's CW segment (60 m is channelized: keep what the
 		// radio recalled), in CW on the usual side (CW-L below 10 MHz, CW-U above): the
 		// band key alone brings back the band stack, maybe SSB up the band.
+		// Audio-tone CW: in FM (MCW, for FM radios) the band stack's frequency stays and the
+		// mode stays FM; otherwise USB with the dial a pitch below, so the tone lands on the
+		// band's CW frequency.
+		if fmWas != "" {
+			if md, err := ft710.SetMode(fmWas); err == nil {
+				cat(md)
+			}
+			break
+		}
 		hz := cwMidHz(a.Value)
+		if audio && hz > 0 {
+			if fa, err := m.SetFreqA(audioCWDial(hz, pitch)); err == nil {
+				cat(fa)
+			}
+			if md, err := ft710.SetMode("2"); err == nil {
+				cat(md)
+			}
+			break
+		}
 		if hz > 0 {
 			if fa, err := m.SetFreqA(hz); err == nil {
 				cat(fa)
@@ -664,4 +693,13 @@ func (e *Engine) stopSweepWait() {
 	case <-done:
 	case <-time.After(3 * time.Second):
 	}
+}
+
+// fmMode: a Yaesu FM mode code (FM, FM-N, DATA-FM, DATA-FM-N).
+func fmMode(code string) bool {
+	switch code {
+	case "4", "A", "B", "F":
+		return true
+	}
+	return false
 }

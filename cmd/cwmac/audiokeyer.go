@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"os/exec"
@@ -45,6 +46,7 @@ type audioKeyer struct {
 	mu         sync.Mutex
 	ptt        keyLine
 	dev, out   string
+	player     string // "" = aplay (the box); the Mac's cw-play
 	pauseRx    func(bool)
 	pitch      float64
 	gain       float64
@@ -180,7 +182,7 @@ func (k *audioKeyer) run() {
 // aborted.
 func (k *audioKeyer) oneOver() (err error) {
 	k.mu.Lock()
-	dev, out, pause := k.dev, k.out, k.pauseRx
+	dev, out, pause, player := k.dev, k.out, k.pauseRx, k.player
 	k.over = true
 	k.mu.Unlock()
 	defer func() {
@@ -204,6 +206,10 @@ func (k *audioKeyer) oneOver() (err error) {
 	pdev, rate, ch := audioFormat(dev, out)
 	cmd := exec.Command(aplayPath, "-q", "-D", pdev, "-t", "raw", "-f", "S16_LE", "-r", strconv.Itoa(rate),
 		"-c", strconv.Itoa(ch), "--buffer-time=100000", "--period-time=20000")
+	if player != "" { // the Mac: cw-play, the same raw stream to a CoreAudio device
+		cmd = exec.Command(player, macPlayArgs(dev, 48000, 1)...)
+		rate, ch = 48000, 1
+	}
 	// our own pipe, so every write has a deadline: a sound card that stops taking audio
 	// can't leave the rig keyed with the sender stuck
 	pr, stdin, err := os.Pipe()
@@ -213,11 +219,27 @@ func (k *audioKeyer) oneOver() (err error) {
 	cmd.Stdin = pr
 	var stderr strings.Builder
 	cmd.Stderr = &limitedWriter{&stderr, 2000}
+	var ready io.Reader
+	if player != "" {
+		if ready, err = cmd.StdoutPipe(); err != nil {
+			pr.Close()
+			stdin.Close()
+			return fmt.Errorf("audio: %v", err)
+		}
+	}
 	err = cmd.Start()
 	pr.Close() // aplay has it now
 	if err != nil {
 		stdin.Close()
 		return fmt.Errorf("audio: %v", err)
+	}
+	if ready != nil { // cw-play: the clock starts when the sound card is running
+		if err := waitReady(ready, 3*time.Second); err != nil {
+			cmd.Process.Kill()
+			stdin.Close()
+			cmd.Wait()
+			return fmt.Errorf("the rig's sound card: %v %s", err, firstLine(strings.TrimSpace(stderr.String())))
+		}
 	}
 	exited := make(chan struct{})
 	go func() { cmd.Wait(); close(exited) }()

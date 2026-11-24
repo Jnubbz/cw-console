@@ -35,6 +35,12 @@ func (f *fake991) get(k string) string {
 	return f.v[k]
 }
 
+func (f *fake991) set(k, v string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.v[k] = v
+}
+
 func (f *fake991) sent(prefix string) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -286,5 +292,20 @@ func TestRadioOffIsNotProbedEveryPoll(t *testing.T) {
 	}
 	if again := time.Since(t1); again > first/2 || again > 200*time.Millisecond {
 		t.Fatalf("re-probed: first %v, 20 more %v", first, again)
+	}
+}
+
+// Audio-tone CW: in DATA-FM (MCW for FM radios) a band key keeps DATA-FM and the band
+// stack's frequency; otherwise it lands in USB with the dial a pitch below the CW frequency.
+func TestFT991ABandKeysAudioTone(t *testing.T) {
+	e, f := testEngine991(t)
+	e.applySettings(json.RawMessage(`{"txLine":"audio","pitch":700}`))
+	f.set("MD0", "A")
+	if r := e.doRig(rigAction{"band", "2m"}); r.Error != "" || f.get("FA") != "144200000" || f.get("MD0") != "A" {
+		t.Fatalf("2 m in DATA-FM: FA %s MD0 %s %s", f.get("FA"), f.get("MD0"), r.Error)
+	}
+	f.set("MD0", "3")
+	if r := e.doRig(rigAction{"band", "70cm"}); r.Error != "" || f.get("FA") != "432084300" || f.get("MD0") != "2" {
+		t.Fatalf("70 cm in CW: FA %s MD0 %s %s", f.get("FA"), f.get("MD0"), r.Error)
 	}
 }

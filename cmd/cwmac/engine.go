@@ -865,6 +865,7 @@ func (e *Engine) stateLocked() event {
 	if s.MyCall == "" {
 		s.MyCall = e.tx.ctx.MyCall
 	}
+	s.AudioCW = appliance || macPlayer() != ""
 	if appliance {
 		on, dev, err, want := e.cap.status()
 		if time.Since(e.boxScan) > 2*time.Second { // cheap, but no need 10x a second
@@ -919,6 +920,7 @@ type stateMsg struct {
 	SendWPM   int       `json:"sendWPM"`
 	Band      string    `json:"band"`
 	Act       actState  `json:"act"`
+	AudioCW   bool      `json:"audioCW"` // CW as an audio tone can be sent here (the box, the Mac app)
 	Appliance *boxState `json:"appliance,omitempty"`
 	FT8       *ft8State `json:"ft8,omitempty"`
 	SSTV      *sstvMsg  `json:"sstv,omitempty"`
