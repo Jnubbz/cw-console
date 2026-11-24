@@ -30,6 +30,25 @@ func appBundle() string {
 	return app
 }
 
+// translocated: macOS runs a quarantined app opened where it was downloaded from a
+// read-only random path (App Translocation), where nothing can be written next to it.
+func translocated(app string) bool { return strings.Contains(app, "/AppTranslocation/") }
+
+// installTarget: where an update goes. Next to the running app; but a translocated app's
+// real place can't be written (or even known), so then into /Applications, or
+// ~/Applications if that isn't writable. The updater's own download carries no quarantine
+// flag, so the copy installed there runs normally from then on.
+func installTarget(app, home string, writable func(dir string) bool) string {
+	if !translocated(app) {
+		return app
+	}
+	name := filepath.Base(app)
+	if writable("/Applications") {
+		return filepath.Join("/Applications", name)
+	}
+	return filepath.Join(home, "Applications", name)
+}
+
 // swapApp unpacks zip in stage and puts the app inside it in place of app, under the new
 // app's own name (an update from a build still called "CW Decoder.app" lands as "CW
 // Console.app"). Returns where it went. The old app is moved into stage (thrown away with
@@ -52,7 +71,9 @@ func swapApp(app, zip, stage string) (string, error) {
 	}
 	target := filepath.Join(filepath.Dir(app), filepath.Base(newApp))
 	old := filepath.Join(stage, "old.app")
-	if err := os.Rename(app, old); err != nil {
+	if _, err := os.Stat(app); err != nil {
+		old = "" // nothing there yet (first install in Applications)
+	} else if err := os.Rename(app, old); err != nil {
 		return "", fmt.Errorf("can't replace %s: %v", app, err)
 	}
 	var older string // a copy already at the new name (renamed): set it aside too
@@ -60,7 +81,9 @@ func swapApp(app, zip, stage string) (string, error) {
 		if _, err := os.Stat(target); err == nil {
 			older = filepath.Join(stage, "older.app")
 			if err := os.Rename(target, older); err != nil {
-				os.Rename(old, app)
+				if old != "" {
+					os.Rename(old, app)
+				}
 				return "", fmt.Errorf("can't replace %s: %v", target, err)
 			}
 		}
@@ -69,7 +92,9 @@ func swapApp(app, zip, stage string) (string, error) {
 		if older != "" {
 			os.Rename(older, target)
 		}
-		os.Rename(old, app) // put it back
+		if old != "" {
+			os.Rename(old, app) // put it back
+		}
 		return "", fmt.Errorf("can't put the new version in place: %v", err)
 	}
 	return target, nil
