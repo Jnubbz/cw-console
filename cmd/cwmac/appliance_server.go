@@ -146,14 +146,6 @@ func (s *server) applianceRoutes(m *http.ServeMux, reply func(http.ResponseWrite
 		}
 		writeJSON(w, map[string]string{"answer": a, "port": c.Port, "baud": strconv.Itoa(c.Baud)})
 	}))
-	m.HandleFunc("/api/radio", s.guard(func(w http.ResponseWriter, r *http.Request) {
-		var q struct{ Action, Name, To string }
-		if readJSON(r, &q) != nil {
-			http.Error(w, "bad json", 400)
-			return
-		}
-		reply(w, s.e.radioAction(q.Action, q.Name, q.To))
-	}))
 	m.HandleFunc("/api/capture", s.guard(func(w http.ResponseWriter, r *http.Request) {
 		var q struct {
 			On  bool

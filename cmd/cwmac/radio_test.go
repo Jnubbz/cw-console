@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -148,5 +150,33 @@ func TestRadioMigration(t *testing.T) {
 	b, _ := os.ReadFile(filepath.Join(dataDir, "mac-settings.json"))
 	if json.Unmarshal(b, &e.st) != nil || e.st.Radios[e.st.radioIndex("FX-4CR")].FT8PTTLine != "cat" {
 		t.Fatalf("saved: %s", b)
+	}
+}
+
+// The Mac app has radio profiles too: /api/radio was only on the box, so New radio on
+// the Mac did nothing and every change went into Radio 1.
+func TestRadioProfilesOverHTTPOnTheMac(t *testing.T) {
+	dataDir = t.TempDir()
+	defer func() { dataDir = "" }()
+	appliance = false
+	s := &server{e: newEngine(newHub()), h: newHub(), token: "tok", port: 7395}
+	m := s.routes()
+	post := func(body string) int {
+		r := httptest.NewRequest("POST", "/api/radio", strings.NewReader(body))
+		r.Host = "localhost:7395"
+		r.Header.Set("X-CW-Token", "tok")
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		m.ServeHTTP(w, r)
+		return w.Code
+	}
+	if c := post(`{"action":"rename","name":"Radio 1","to":"FT-710"}`); c != 200 {
+		t.Fatalf("rename: %d", c)
+	}
+	if c := post(`{"action":"new","to":"FT-991A"}`); c != 200 {
+		t.Fatalf("new: %d", c)
+	}
+	if s.e.st.Radio != "FT-991A" || len(s.e.st.Radios) != 2 || s.e.st.Radios[0].Name != "FT-710" {
+		t.Fatalf("profiles: %q %+v", s.e.st.Radio, s.e.st.Radios)
 	}
 }

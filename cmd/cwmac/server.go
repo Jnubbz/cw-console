@@ -747,6 +747,15 @@ func (s *server) routes() *http.ServeMux {
 		}
 		writeJSON(w, map[string]any{"file": filepath.Base(p), "n": n})
 	}))
+	// radio profiles: the Mac and the box both have them
+	m.HandleFunc("/api/radio", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		var q struct{ Action, Name, To string }
+		if readJSON(r, &q) != nil {
+			http.Error(w, "bad json", 400)
+			return
+		}
+		reply(w, s.e.radioAction(q.Action, q.Name, q.To))
+	}))
 	if appliance {
 		s.applianceRoutes(m, reply)
 	} else { // the Mac has its own clock

@@ -794,7 +794,10 @@ async function api(path, body, opts = {}) {
   const r = await fetch(path, init);
   if (opts.text) return r.text();
   const t = await r.text();
-  try { return t ? JSON.parse(t) : {}; } catch { return {}; }
+  let o = {};
+  try { o = t ? JSON.parse(t) : {}; } catch {}
+  if (opts.status && o && typeof o === "object") o.status = r.status;
+  return o;
 }
 const setting = (obj) => api("/api/settings", obj);
 
@@ -1967,8 +1970,9 @@ function applyRadios(s) {
   $("radiodel").disabled = list.length < 2;
 }
 async function radioDo(action, name, to) {
-  const r = await api("/api/radio", { action, name, to });
+  const r = await api("/api/radio", { action, name, to }, { status: true });
   if (r.error) info("Radio", r.error);
+  else if (r.status >= 400) info("Radio", "that didn't work (" + r.status + "), so nothing changed");
 }
 $("radiosel").onchange = () => { touched.radiosel = Date.now(); radioDo("switch", $("radiosel").value); };
 $("radionew").onclick = () => {
