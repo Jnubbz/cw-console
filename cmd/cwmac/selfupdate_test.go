@@ -195,3 +195,34 @@ func TestDesktopUpdateEndToEnd(t *testing.T) {
 		t.Fatalf("wrong key accepted: %+v", s)
 	}
 }
+
+// Opened from Downloads with the download flag on, macOS runs the app from a read-only
+// App Translocation path: the update goes to Applications instead of failing.
+func TestUpdateOfATranslocatedApp(t *testing.T) {
+	tl := "/private/var/folders/s1/x/T/AppTranslocation/6778F1CC-FDED/d/CW Console.app"
+	yes := func(string) bool { return true }
+	no := func(string) bool { return false }
+	if got := installTarget(tl, "/Users/josh", yes); got != "/Applications/CW Console.app" {
+		t.Fatal(got)
+	}
+	if got := installTarget(tl, "/Users/josh", no); got != "/Users/josh/Applications/CW Console.app" {
+		t.Fatal(got)
+	}
+	if got := installTarget("/Applications/CW Console.app", "/Users/josh", yes); got != "/Applications/CW Console.app" {
+		t.Fatal("a normal install updates in place:", got)
+	}
+	// Nothing in Applications yet: the new app is simply put there.
+	apps := filepath.Join(t.TempDir(), "Applications")
+	os.MkdirAll(apps, 0o755)
+	app := filepath.Join(apps, "CW Console.app")
+	stage, _ := os.MkdirTemp(apps, ".cw-update-")
+	zp := filepath.Join(stage, "u.zip")
+	os.WriteFile(zp, macZip(t, true), 0o644)
+	to, err := swapApp(app, zp, stage)
+	if err != nil || to != filepath.Join(apps, "CW Decoder.app") {
+		t.Fatal(to, err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(to, "Contents", "MacOS", "cw-decoder")); string(b) != "NEW" {
+		t.Fatalf("app has %q", b)
+	}
+}

@@ -15,10 +15,28 @@ import (
 	"syscall"
 )
 
+// dirWritable: whether this user can create files in dir.
+func dirWritable(dir string) bool {
+	f, err := os.CreateTemp(dir, ".cw-write-test-")
+	if err != nil {
+		return false
+	}
+	f.Close()
+	os.Remove(f.Name())
+	return true
+}
+
 func setupInstaller(u *desktopUpdater) {
 	app := appBundle()
 	if app == "" {
 		return
+	}
+	home, _ := os.UserHomeDir()
+	if to := installTarget(app, home, dirWritable); to != app {
+		// Opened from Downloads (or wherever it was unzipped) with the download flag on:
+		// macOS runs it from a read-only copy. The update goes to Applications instead.
+		os.MkdirAll(filepath.Dir(to), 0o755)
+		app = to
 	}
 	u.stage = func() (string, error) {
 		d, err := os.MkdirTemp(filepath.Dir(app), ".cw-update-")
