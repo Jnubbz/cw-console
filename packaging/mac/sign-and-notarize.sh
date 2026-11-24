@@ -20,6 +20,7 @@ fi
 echo "Signing with: $IDENTITY"
 xattr -cr "$APP"
 codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP/Contents/MacOS/cw-decoder"
+[ -f "$APP/Contents/MacOS/cw-play" ] && codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP/Contents/MacOS/cw-play"
 codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 ZIP="$(mktemp -d)/CW-Console-notarize.zip"

@@ -590,16 +590,16 @@
     <div class="note">The settings below are saved for the radio picked here. Plug in another radio you've set up and the box switches to it by itself.</div>
     <div class="row"><label for="dev" title="The radio's USB sound card. Auto: the one on the same USB cable as the key port (so each radio hears its own, even with two plugged in)">Audio input</label><select id="dev" style="flex:1;min-width:0;max-width:100%"><option value="">(press Start to list inputs)</option></select>
       <button id="capbtn" title="Start or stop listening to the input">Stop listening</button></div>
-    <div class="row" id="playrow" hidden><label for="playdev" title="Where FT8 transmit audio is played. Pick the radio's playback device (the same USB codec as the input). Windows lists its playback devices here.">Playback device</label><select id="playdev" style="flex:1;min-width:0;max-width:100%"><option value="">Default playback</option></select></div>
+    <div class="row" id="playrow" hidden><label for="playdev" title="Where FT8 and audio-tone CW are played. Pick the radio's own sound card (the same USB codec as the input), not the computer's speakers.">Playback device</label><select id="playdev" style="flex:1;min-width:0;max-width:100%"><option value="">Default playback</option></select></div>
     <div class="row"><label for="port" title="The radio's USB serial port: CW keying lines, PTT lines and CAT (on the FT-710, its second port; CAT is on the first)">Key port</label><select id="port" style="flex:1;min-width:0;max-width:100%"></select><button id="rescan" title="Look for ports again">&#8635;</button></div>
     <div class="row"><label for="catport" title="The radio's CAT port (its Enhanced COM port, the first of its two), used by the Rig sheet. Auto finds it by asking each USB serial port for a Yaesu ID (FT-710 or FT-991A), at 4800-38400 baud">CAT port</label><select id="catport" style="flex:1;min-width:0;max-width:100%"><option value="">Auto (find the radio)</option></select></div>
     <div class="row"><label title="The send speed goes to the radio's keyer (your paddle matches), and the Pitch slider sets the radio's CW pitch and sidetone. Zero in then puts a station on that same pitch"><input id="rigsync" type="checkbox"> One speed and one pitch (Yaesu)</label></div>
     <div class="row"><label title="Each band keeps the power you last used on it, home and POTA separately, set when the radio changes band"><input id="bandpwr" type="checkbox"> Power remembered per band</label></div>
-    <div class="row"><label for="line" title="How CW keys the rig. DTR/RTS: a line of the key port, rig in CW (FT-710 and FT-991A: PC KEYING to match; FT-991A menu 060). CAT keyer: the text goes to the radio's own keyer (Kenwood KY). Audio tone: for radios with no key line over USB (FX-4CR): a clean keyed tone into the rig's USB audio, rig in USB">CW keying</label><select id="line"><option value="dtr">DTR</option><option value="rts">RTS</option><option value="cat">CAT keyer</option><option value="audio">Audio tone</option></select></div>
-    <div class="note" id="audionote" hidden>Audio tone: CW goes out as a clean keyed tone at the decoder's pitch, through the rig's USB audio, keyed by the PTT below (the FX-4CR needs CAT) at the TX level. The rig must be in USB; Rig control puts it there.</div>
-    <div class="row boxonly"><label for="f8ptt" title="How the box keys the rig to send audio: FT8, and CW as an audio tone. RTS/DTR: a line of the key port (FT-710: RPTT SELECT to match). CAT: a TX1; command (the FX-4CR needs this: its RTS PTT sends the mic)">PTT</label><select id="f8ptt"><option value="rts">RTS</option><option value="dtr">DTR</option><option value="cat">CAT (TX1;)</option></select></div>
+    <div class="row"><label for="line" title="How CW keys the rig. DTR/RTS: a line of the key port, rig in CW (FT-710 and FT-991A: PC KEYING to match; FT-991A menu 060). CAT keyer: the text goes to the radio's own keyer (Kenwood KY). Audio tone: a clean keyed tone into the rig's USB audio, for radios with no key line over USB (FX-4CR, rig in USB) or MCW that FM radios hear (rig in DATA-FM)">CW keying</label><select id="line"><option value="dtr">DTR</option><option value="rts">RTS</option><option value="cat">CAT keyer</option><option value="audio">Audio tone</option></select></div>
+    <div class="note" id="audionote" hidden>Audio tone: CW goes out as a clean keyed tone at the decoder's pitch, through the rig's USB audio, keyed by the PTT below (the FX-4CR needs CAT) at the TX level. The rig in USB sends it like CW (Rig control puts it there). The rig in DATA-FM sends MCW, a beep that FM radios hear (a handheld, a DM-32UV). FT-991A: PTT RTS with menu 071 DATA PTT SELECT RTS, 070 DATA IN SELECT REAR and 072 DATA PORT SELECT USB.</div>
+    <div class="row boxonly audiotx"><label for="f8ptt" title="How the box keys the rig to send audio: FT8, and CW as an audio tone. RTS/DTR: a line of the key port (FT-710: RPTT SELECT to match). CAT: a TX1; command (the FX-4CR needs this: its RTS PTT sends the mic)">PTT</label><select id="f8ptt"><option value="rts">RTS</option><option value="dtr">DTR</option><option value="cat">CAT (TX1;)</option></select></div>
     <div class="row boxonly"><label for="f8out" title="The audio format sent to the rig's USB sound chip (FT8 and audio CW). Auto: 44.1 kHz stereo direct for C-Media chips (FT-710, FX-4CR), 48 kHz mono for others">Audio out</label><select id="f8out"><option value="">Auto</option><option value="plug">48k mono</option><option value="hw48">48k stereo direct</option><option value="hw44">44.1k stereo direct</option></select></div>
-    <div class="row boxonly"><label for="rlvl" title="Transmit audio level for FT8 and audio CW, in dB below full scale (the same as Level on the FT8 screen). Raise it until the power stops rising, then back off a little">TX level</label><input id="rlvl" type="range" min="0" max="100" step="1" style="flex:1;min-width:90px;max-width:260px"><span id="rlvlv" class="val"></span></div>
+    <div class="row boxonly audiotx"><label for="rlvl" title="Transmit audio level for FT8 and audio CW, in dB below full scale (the same as Level on the FT8 screen). Raise it until the power stops rising, then back off a little">TX level</label><input id="rlvl" type="range" min="0" max="100" step="1" style="flex:1;min-width:90px;max-width:260px"><span id="rlvlv" class="val"></span></div>
     <div class="row boxonly"><label for="cattype" title="The radio&#39;s CAT command set, for Rig control and CAT PTT. Yaesu: the FT-710 and most Yaesus. Kenwood: the TS-590 set, which the FX-4CR and others use">CAT</label><select id="cattype"><option value="">Auto</option><option value="yaesu">Yaesu (FT-710, FT-991A)</option><option value="kenwood">Kenwood (FX-4CR)</option></select></div>
     <div class="row boxonly"><label for="catcmd" title="Send one CAT command to the radio and see its answer (troubleshooting). Untick Transmit first.">CAT console</label>
       <input id="catcmd" type="text" placeholder="FA;" maxlength="64" autocomplete="off" spellcheck="false" style="width:150px;text-transform:uppercase;font-family:var(--mono)">
@@ -898,7 +898,7 @@ function applyState(st) {
   if (!recent("wpm")) $("wpm").value = s.wpm;
   $("wpmv").textContent = s.wpm + (st.sendWPM && st.sendWPM !== s.wpm ? ` (sending ${st.sendWPM})` : "");
   if (!recent("txmode")) $("txmode").value = s.txMode;
-  if (!st.appliance) for (const o of $("line").querySelectorAll('option[value="audio"],option[value="cat"]')) o.remove(); // CAT and the audio tone are the box's
+  if (!st.appliance) for (const o of $("line").querySelectorAll(st.audioCW ? 'option[value="cat"]' : 'option[value="audio"],option[value="cat"]')) o.remove(); // the CAT keyer is the box's; the audio tone, the box's and the Mac app's
   $("setupdate").hidden = !!st.appliance; // the box updates under Box
   if (!recent("line")) $("line").value = s.txLine || "dtr";
   $("audionote").hidden = $("line").value !== "audio";
@@ -1383,7 +1383,7 @@ async function enableTX(on) {
   pending = ""; txin.value = "";
   const ln = $("line").value;
   if (on) note(ln === "cat" ? "Transmit ready: the radio's own keyer sends the text (CAT). The rig must be in CW with break-in on."
-    : ln === "audio" ? "Transmit ready: CW goes out as a keyed tone at the decoder's pitch, keyed by the PTT setting at the TX level. The rig must be in USB (Rig control switches it)."
+    : ln === "audio" ? "Transmit ready: CW goes out as a keyed tone at the decoder's pitch, keyed by the PTT setting at the TX level. Rig in USB: sent like CW. Rig in DATA-FM: MCW, heard by FM radios."
     : `Transmit ready: keying ${ln.toUpperCase()} on ${$("port").value}. The rig must be in CW with break-in on.`);
 }
 $("txon").onchange = () => enableTX($("txon").checked);
@@ -1596,7 +1596,8 @@ function applyFT8(st) {
   $("setft8").style.display = f && f.have ? "" : "none";
   const ft8b = document.querySelector('#modeseg [data-m=ft8]');
   if (ft8b) ft8b.title = (f && f.have) ? "FT8" : ((f && f.hint) || "Install WSJT-X to enable FT8");
-  for (const el of document.querySelectorAll(".boxonly")) el.style.display = f && f.have ? "" : "none";
+  const aud = st.settings.txLine === "audio"; // audio-tone CW needs PTT, audio out and level too
+  for (const el of document.querySelectorAll(".boxonly")) el.style.display = (f && f.have) || (aud && el.classList.contains("audiotx")) ? "" : "none";
   if (!recent("mode")) $("mode").value = st.settings.mode || "cw";
   syncModeSeg();
   document.body.classList.toggle("ft8", ft);

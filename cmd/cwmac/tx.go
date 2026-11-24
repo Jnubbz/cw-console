@@ -120,7 +120,22 @@ func (t *txEngine) enableLocked(on bool, port, line string) error {
 func (t *txEngine) newAudioKeyerLocked(port string) (*audioKeyer, error) {
 	st := &t.e.st
 	if !appliance {
-		return nil, errors.New("CW as an audio tone works on the POTA Pi box")
+		// the Mac: its own player, to the radio's playback device
+		if macPlayer() == "" {
+			return nil, errors.New("CW as an audio tone needs the Mac app or the POTA Pi box")
+		}
+		if st.PlayDevice == "" {
+			return nil, errors.New("pick the radio's sound card in Setup > Radio > Playback device (not the Mac's speakers)")
+		}
+		ptt, err := openPTT(port, effectivePTT("audio", st.FT8PTTLine), st.CATType)
+		if err != nil {
+			return nil, err
+		}
+		k := newAudioKeyer(ptt, st.PlayDevice, "", nil, st.Pitch, ft8LevelGain(st.FT8Level), st.WPM)
+		k.mu.Lock()
+		k.player = macPlayer()
+		k.mu.Unlock()
+		return k, nil
 	}
 	dev := t.e.cap.device()
 	if dev == "" {

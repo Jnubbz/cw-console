@@ -39,6 +39,9 @@ fi
 if command -v swiftc >/dev/null && [ "$(uname)" = Darwin ]; then
   swiftc -O -target arm64-apple-macos12 -framework Cocoa -framework WebKit \
     -o "$APP/MacOS/CW Console" packaging/mac/shell/main.swift
+  # the Mac's sound output (audio-tone CW, FT8 to the radio's sound card)
+  swiftc -O -target arm64-apple-macos12 -framework AVFoundation -framework CoreAudio -framework AudioToolbox \
+    -o "$APP/MacOS/cw-play" packaging/mac/play/main.swift
 else
   echo "build.sh: no Swift here: the Mac app opens in the browser (build on a Mac for the window)" >&2
   sed -i.bak -e "s#<key>CFBundleExecutable</key><string>[^<]*</string>#<key>CFBundleExecutable</key><string>cw-decoder</string><key>LSUIElement</key><true/>#" "$APP/Info.plist"
