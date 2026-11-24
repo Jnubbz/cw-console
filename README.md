@@ -154,8 +154,9 @@ For FM radios (a handheld, a DM-32UV), send **MCW**, a keyed tone over FM:
 
 - Setup > Radio: **CW keying** Audio tone, **PTT** RTS, **Playback device** the radio's
   USB AUDIO CODEC (not the Mac's speakers), and the **TX level** for the deviation.
-- On the FT-991A: mode **DATA-FM**; menu 070 DATA IN SELECT REAR, 071 DATA PTT SELECT
-  RTS, 072 DATA PORT SELECT USB.
+- On the FT-991A: mode **DATA-FM**; menu 076 FM PKT PTT SELECT RTS and 077 FM PKT
+  PORT SELECT USB. (070 to 072 are the DATA-USB menus; DATA-FM has its own.) Too low a
+  TX level and FM radios hear only the carrier, as static.
 - The band keys keep DATA-FM (and the band's last frequency) while CW keying is Audio
   tone. In USB, Audio tone is sent like CW instead (the dial a pitch below the CW frequency).
 
