@@ -37,6 +37,10 @@ func (b *portBus) holdLease(string, int, rig.Priority) (*sharedPort, func(), err
 	return nil, nil, errors.New("rig control needs macOS or Linux here")
 }
 
+func (b *portBus) exchangeLenient(path string, baud int, pri rig.Priority, cmds []string) ([]string, error) {
+	return b.exchange(path, baud, pri, cmds)
+}
+
 func (b *portBus) exchange(string, int, rig.Priority, []string) ([]string, error) {
 	return nil, errors.New("rig control needs macOS or Linux here")
 }
