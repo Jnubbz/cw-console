@@ -213,7 +213,10 @@ func IsQuery(cmd string) bool {
 	switch cmd {
 	case "FA;", "FB;", "MD0;", "FT;", "CF000;", "CF001;", "PC;", "RG0;", "AG0;", "BI;", "AC;", "KS;", "ID;",
 		MeterS, MeterSM, MeterALC, MeterPO, MeterSWR,
-		"IF;", "EX060;": // FT-991A: clarifier (IF) and PC KEYING (menu 060)
+		"IF;", "EX060;", // FT-991A: clarifier (IF) and PC KEYING (menu 060)
+		// CW controls: break-in type (FT-710 menu 02-01-16, FT-991A 056), delay, width,
+		// APF, IF shift, pitch, notches
+		BreakInTypeQuery, "EX056;", "SD;", "SH0;", "CO02;", "IS0;", "KP;", "BC0;", "BP00;", "BP01;":
 		return true
 	}
 	return false

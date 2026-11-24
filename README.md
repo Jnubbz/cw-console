@@ -127,6 +127,26 @@ everywhere in every US HF band), and reads the SWR meter. Esc or Stop ends it; t
 frequency, mode, power, split, clarifier and break-in are always put back. Only sweep where
 your license lets you transmit, and listen first.
 
+### CW controls (FT-710, FT-991A)
+
+- **BK-IN** next to Transmit, with Semi/Full and the delay. CW on the key line only plays the
+  sidetone with break-in off, so the app says so (click the warning to turn it on).
+- **Width** (250-500 Hz, then the radio's next one up: 600 on the FT-710, 800 on the FT-991A),
+  **APF**, **Notch** (auto) and IF shift in the Radio panel; the Rig sheet has every width,
+  the IF shift slider and the manual notch.
+- **One speed and one pitch** (Setup > Radio): the send speed (Match speed too) goes to the
+  radio's keyer, and moving the Pitch slider sets the radio's CW pitch and sidetone, like
+  its PITCH knob. A waterfall click only moves the decoder.
+- **Zero in** (next to Auto tune) then moves the dial so that station sounds at the radio's
+  pitch, centered in its filters at your sidetone's tone, and puts the decoder there. CW
+  only, never while sending.
+- **Power per band** (Setup > Radio): each band keeps the power last used on it, home and
+  POTA separately, set when the radio changes band.
+
+Where the two radios differ (break-in type is menu 02-01-16 on the FT-710 and 056 on the
+FT-991A; the delay is a step number on one and milliseconds on the other; the width tables and
+IF shift formats differ) the app uses each radio's own form.
+
 ## Contesting (CQ WW DX CW)
 
 Setup > Operating > **Contest: CQ WW DX (CW)**. Set the zone you send (Florida: 5),

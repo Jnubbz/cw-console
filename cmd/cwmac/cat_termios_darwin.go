@@ -30,7 +30,8 @@ func catRaw(fd, baud int) error {
 	return nil
 }
 
+// catFlush drops stale input (old answers); never output, which is commands not yet out.
 func catFlush(fd int) {
-	what := int32(0x3) // FREAD | FWRITE (<sys/fcntl.h>)
+	what := int32(0x1) // FREAD (<sys/fcntl.h>)
 	syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), syscall.TIOCFLUSH, uintptr(unsafe.Pointer(&what)))
 }

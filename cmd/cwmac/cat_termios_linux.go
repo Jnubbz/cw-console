@@ -25,4 +25,7 @@ func catRaw(fd, baud int) error {
 	return nil
 }
 
-func catFlush(fd int) { syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), 0x540B /* TCFLSH */, 2) }
+// catFlush drops stale input (old answers); never output, which is commands not yet out.
+func catFlush(fd int) {
+	syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), 0x540B /* TCFLSH */, 0 /* TCIFLUSH */)
+}

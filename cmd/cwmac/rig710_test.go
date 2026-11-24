@@ -44,7 +44,9 @@ func startFake710(t *testing.T) (string, *fake710) {
 	port := filepath.Join(t.TempDir(), "usb-Silicon_Labs_CP2105_Dual_USB_to_UART_Bridge_Controller_X-if00-port0")
 	os.Symlink("/dev/pts/"+strconv.Itoa(int(n)), port)
 	f := &fake710{v: map[string]string{"FA": "014058000", "FB": "014060000", "MD0": "3", "FT": "0",
-		"CF000": "00000", "CF001": "+0000", "PC": "050", "BI": "0", "ID": "0800", "RG0": "255", "AG0": "040"}}
+		"CF000": "00000", "CF001": "+0000", "PC": "050", "BI": "0", "ID": "0800", "RG0": "255", "AG0": "040",
+		"EX020116": "0", "SD": "04", "SH0": "010", "CO02": "0000", "IS0": "0+0000", "KP": "30", "KS": "020",
+		"BC0": "0", "BP00": "000", "BP01": "100"}}
 	go func() {
 		buf := make([]byte, 256)
 		var acc string
@@ -79,7 +81,8 @@ func (f *fake710) handle(cmd string) string {
 	defer f.mu.Unlock()
 	f.cmds = append(f.cmds, cmd)
 	body := strings.TrimSuffix(cmd, ";")
-	for _, k := range []string{"CF000", "CF001", "MD0", "FA", "FB", "FT", "PC", "BI", "ID", "RG0", "AG0"} {
+	for _, k := range []string{"CF000", "CF001", "MD0", "FA", "FB", "FT", "PC", "BI", "ID", "RG0", "AG0",
+		"EX020116", "SD", "SH0", "CO02", "IS0", "KP", "KS", "BC0", "BP00", "BP01"} {
 		if strings.HasPrefix(body, k) {
 			if rest := body[len(k):]; rest != "" {
 				f.v[k] = rest

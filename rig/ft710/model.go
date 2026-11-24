@@ -38,6 +38,11 @@ type Model struct {
 	vhfMaxW     int // power limit at and above 144 MHz (0: no VHF)
 	po, swr     []calPoint
 	pcKeying    string // EX menu that has to be DTR/RTS for key-line CW ("" none)
+	bkType      string // EX menu: CW BK-IN TYPE (0 semi, 1 full)
+	delayMs     bool   // SD takes ms (FT-991A), not step numbers (FT-710)
+	widths      []int  // SH table, CW
+	widthSet    string // "SH00" / "SH0"
+	ifShift     string // "IS00" / "IS0"
 }
 
 var hfBands = []string{"160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m"}
@@ -50,7 +55,8 @@ var hfCodes = map[string]string{
 // FT710: the Yaesu FT-710.
 var FT710 = &Model{Name: "FT-710", ID: "ID0800;", DefaultBaud: 38400, MaxHz: 75_000_000,
 	bandOrder: hfBands, bands: hfCodes, clarCF: true, split: [2]string{"FT0;", "FT1;"},
-	tune: "AC003;", po: poCal, swr: swrCal}
+	tune: "AC003;", po: poCal, swr: swrCal,
+	bkType: "EX020116", widths: CWWidths, widthSet: "SH00", ifShift: "IS00"}
 
 // FT991A: the Yaesu FT-991A (HF, 6 m, 2 m, 70 cm).
 var FT991A = func() *Model {
@@ -61,7 +67,8 @@ var FT991A = func() *Model {
 	return &Model{Name: "FT-991A", ID: "ID0670;", DefaultBaud: 4800, MaxHz: 470_000_000,
 		bandOrder: append(append([]string(nil), hfBands...), "2m", "70cm"), bands: codes,
 		split: [2]string{"FT2;", "FT3;"}, tune: "AC002;", vhfMaxW: 50,
-		po: po991Cal, swr: swrDefaultCal, pcKeying: "EX060"}
+		po: po991Cal, swr: swrDefaultCal, pcKeying: "EX060",
+		bkType: "EX056", delayMs: true, widths: cw991Widths, widthSet: "SH0", ifShift: "IS0"}
 }()
 
 // FT991: the original FT-991, same dialect as the FT-991A.
