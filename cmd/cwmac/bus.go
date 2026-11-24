@@ -181,6 +181,16 @@ func (b *portBus) holdLease(path string, baud int, pri rig.Priority) (sp *shared
 // exchange writes cmds under pri. A meter poll during a key lease returns
 // rig.ErrBusy and writes nothing.
 func (b *portBus) exchange(path string, baud int, pri rig.Priority, cmds []string) ([]string, error) {
+	return b.exchangeOpt(path, baud, pri, cmds, false)
+}
+
+// exchangeLenient: like exchange, but a query the rig rejects ("?;") answers "?;" instead
+// of ending the batch (reading settings a firmware may not have).
+func (b *portBus) exchangeLenient(path string, baud int, pri rig.Priority, cmds []string) ([]string, error) {
+	return b.exchangeOpt(path, baud, pri, cmds, true)
+}
+
+func (b *portBus) exchangeOpt(path string, baud int, pri rig.Priority, cmds []string, lenient bool) ([]string, error) {
 	sp, err := b.retain(path, baud)
 	if err != nil {
 		return nil, err
@@ -189,11 +199,13 @@ func (b *portBus) exchange(path string, baud int, pri rig.Priority, cmds []strin
 	var out []string
 	err = b.acquire(sp.key, pri, func() error {
 		var e error
-		out, e = sp.transact(cmds)
+		out, e = sp.transactOpt(cmds, lenient)
 		return e
 	})
 	return out, err
 }
+
+var errRejected = errors.New("the rig rejected the command")
 
 type sharedPort struct {
 	mu     sync.Mutex
@@ -232,7 +244,9 @@ func (p *sharedPort) configure(baud int) error {
 
 // transact writes each command and reads a reply when the command is a query.
 // The whole list is one critical section with Key and Close.
-func (p *sharedPort) transact(cmds []string) ([]string, error) {
+func (p *sharedPort) transact(cmds []string) ([]string, error) { return p.transactOpt(cmds, false) }
+
+func (p *sharedPort) transactOpt(cmds []string, lenient bool) ([]string, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.closed || p.fd < 0 {
@@ -245,6 +259,9 @@ func (p *sharedPort) transact(cmds []string) ([]string, error) {
 		}
 		if isCATQuery(cmd) {
 			a, err := p.readLocked(600 * time.Millisecond)
+			if err != nil && lenient && errors.Is(err, errRejected) {
+				a, err = "?;", nil
+			}
 			if err != nil {
 				return out, err
 			}
@@ -299,7 +316,7 @@ func (p *sharedPort) readLocked(d time.Duration) (string, error) {
 		for i, ch := range b {
 			if ch == ';' {
 				if string(b[:i+1]) == "?;" {
-					return "", errors.New("the rig rejected the command")
+					return "", errRejected
 				}
 				return string(b[:i+1]), nil
 			}

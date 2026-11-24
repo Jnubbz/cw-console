@@ -246,15 +246,16 @@ func (e *Engine) ft710CAT() (ft710.CAT, catSpec, error) {
 }
 
 type rigReply struct {
-	State     *ft710.State `json:"state,omitempty"`
-	Model     string       `json:"model,omitempty"`     // "FT-710", "FT-991A"
-	Bands     []string     `json:"bands,omitempty"`     // its band keys
-	MaxPowerW int          `json:"maxPowerW,omitempty"` // here (50 on 2 m and 70 cm on the FT-991A)
-	Baud      int          `json:"baud,omitempty"`
-	PCKeying  *int         `json:"pcKeying,omitempty"` // FT-991A menu 060: 0 off, 1 DAKY, 2 RTS, 3 DTR
-	Warning   string       `json:"warning,omitempty"`
-	Port      string       `json:"port,omitempty"`
-	Error     string       `json:"error,omitempty"`
+	State     *ft710.State    `json:"state,omitempty"`
+	Model     string          `json:"model,omitempty"`     // "FT-710", "FT-991A"
+	Bands     []string        `json:"bands,omitempty"`     // its band keys
+	MaxPowerW int             `json:"maxPowerW,omitempty"` // here (50 on 2 m and 70 cm on the FT-991A)
+	Baud      int             `json:"baud,omitempty"`
+	PCKeying  *int            `json:"pcKeying,omitempty"` // FT-991A menu 060: 0 off, 1 DAKY, 2 RTS, 3 DTR
+	Controls  *ft710.Controls `json:"controls,omitempty"` // break-in, filters, notch, pitch, keyer speed
+	Warning   string          `json:"warning,omitempty"`
+	Port      string          `json:"port,omitempty"`
+	Error     string          `json:"error,omitempty"`
 }
 
 // rigState reads the panel's state from the radio.
@@ -272,7 +273,19 @@ func (e *Engine) rigState() rigReply {
 	if err != nil {
 		return rigReply{Port: spec.Port, Error: err.Error()}
 	}
-	r := rigReply{State: &st, Port: spec.Port, Model: m.Name, Bands: m.Bands(), MaxPowerW: m.MaxPowerAt(st.FreqA), Baud: spec.Baud}
+	ctl, _ := e.readControls(spec, m) // nil if this firmware won't say
+	e.mu.Lock()
+	e.rp.mu.Lock()
+	extra, note := e.afterRigReadLocked(m, &st, ctl)
+	e.rp.mu.Unlock()
+	if note != "" {
+		e.setNoteLocked(note)
+	}
+	e.mu.Unlock()
+	if len(extra) > 0 {
+		cat(extra...)
+	}
+	r := rigReply{State: &st, Controls: ctl, Port: spec.Port, Model: m.Name, Bands: m.Bands(), MaxPowerW: m.MaxPowerAt(st.FreqA), Baud: spec.Baud}
 	if q := m.PCKeyingQuery(); q != "" {
 		if ans, err := cat(q); err == nil && len(ans) == 1 {
 			if v, err := m.ParsePCKeying(ans[0]); err == nil {
@@ -391,6 +404,9 @@ func (a rigAction) cmds(m *ft710.Model, hz int) ([]string, error) {
 // doRig runs a panel action and returns the new state. Clarifier RX/TX switches keep the
 // other one as it is, so they need the current state first.
 func (e *Engine) doRig(a rigAction) rigReply {
+	if a.Action == "zeroIn" {
+		return e.zeroIn()
+	}
 	if e.sweepRunning() {
 		return rigReply{Error: "an SWR sweep is running (Stop it first)"}
 	}
@@ -424,8 +440,13 @@ func (e *Engine) doRig(a rigAction) rigReply {
 				hz, _ = strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(ans[0], "FA"), ";"))
 			}
 		}
-		if cmds, err = a.cmds(m, hz); err != nil {
+		if cmds, err = a.controlCmds(m); err != nil {
 			return rigReply{Port: spec.Port, Error: err.Error()}
+		}
+		if cmds == nil {
+			if cmds, err = a.cmds(m, hz); err != nil {
+				return rigReply{Port: spec.Port, Error: err.Error()}
+			}
 		}
 	}
 	if _, err := cat(cmds...); err != nil {

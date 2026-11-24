@@ -59,7 +59,9 @@ func startFake991(t *testing.T) (string, *fake991) {
 	port := filepath.Join(t.TempDir(), "usb-Silicon_Labs_CP2105_Dual_USB_to_UART_Bridge_Controller_Y-if00-port0")
 	os.Symlink("/dev/pts/"+strconv.Itoa(int(n)), port)
 	f := &fake991{v: map[string]string{"FA": "007030000", "FB": "007040000", "MD0": "7", "FT": "0", "RT": "0", "XT": "0",
-		"PC": "100", "BI": "0", "ID": "0670", "RG0": "255", "AG0": "040", "EX060": "0"}}
+		"PC": "100", "BI": "0", "ID": "0670", "RG0": "255", "AG0": "040", "EX060": "0",
+		"EX056": "0", "SD": "0200", "SH0": "10", "CO02": "0000", "IS0": "+0000", "KP": "30", "KS": "020",
+		"BC0": "0", "BP00": "000", "BP01": "100"}}
 	at4800 := func() bool {
 		var tio syscall.Termios
 		syscall.Syscall(syscall.SYS_IOCTL, m.Fd(), syscall.TCGETS, uintptr(unsafe.Pointer(&tio)))
@@ -140,9 +142,13 @@ func (f *fake991) handle(cmd string) string {
 		f.v["TUNE"] = "1"
 		return ""
 	case body == "RM5":
+		if po := f.v["PO"]; po != "" {
+			return "RM5" + po + ";" // transmitting
+		}
 		return "RM5000;"
 	}
-	for _, k := range []string{"EX060", "MD0", "RG0", "AG0", "FA", "FB", "FT", "PC", "BI", "ID", "RT", "XT"} {
+	for _, k := range []string{"EX060", "EX056", "MD0", "RG0", "AG0", "FA", "FB", "FT", "PC", "BI", "ID", "RT", "XT",
+		"SD", "SH0", "CO02", "IS0", "KP", "KS", "BC0", "BP00", "BP01"} {
 		if strings.HasPrefix(body, k) {
 			if rest := body[len(k):]; rest != "" {
 				if k == "PC" && f.v["FA"] >= "144000000" && rest > "050" {

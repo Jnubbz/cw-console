@@ -86,6 +86,11 @@ type Settings struct {
 	AutoLog        bool `json:"autoLog"`
 	ContestAutoLog bool `json:"contestAutoLog"`
 
+	// Yaesu (FT-710, FT-991A)
+	RigSync     bool           `json:"rigSync"`     // the send speed -> the radio's keyer; the Pitch slider -> its CW pitch
+	BandPower   bool           `json:"bandPower"`   // power remembered per band (home / POTA)
+	PowerByBand map[string]int `json:"powerByBand"` // "home/20m": 50, "pota/20m": 5
+
 	// Spectrum display. Zero values mean the mode's own default:
 	// CW keeps the 200–1400 Hz canvas, FT8 keeps 0–3000 Hz at 256 columns.
 	SpecPreset string  `json:"specPreset,omitempty"`
@@ -103,7 +108,7 @@ func defaultSettings() Settings {
 		AISpeed: int(deepcw.SpeedAuto), AIFocus: true, WPM: 20, TxMode: "type", TxLine: "dtr", FT8PTTLine: "dtr",
 		Ops: ops.DefaultConfig(), Mode: "cw", FT8Depth: 3, FT8TxFreq: 1500, FT8Level: 50,
 		FT8CQPota: true, FT8AutoCQ: true, RigCtl: true, SpotsOn: true, ContestPower: "LOW", ContestAssisted: true,
-		AutoLog: true, ContestAutoLog: true}
+		AutoLog: true, ContestAutoLog: true, RigSync: true, BandPower: true}
 }
 
 type Engine struct {
@@ -178,6 +183,8 @@ type Engine struct {
 
 	rp rigPanel // FT-710 rig panel and SWR sweep (Mac and Pi box)
 
+	powerKey string // "home/20m": the band whose power is set (power per band)
+
 	feeds spotFeeds // RBN and POTA spots for the band strip
 
 	// Decode card. The QRZ password is not one of these fields; it stays in
@@ -200,7 +207,10 @@ type Engine struct {
 
 	wf     *cw.Waterfall // waterfall rows (one per state update)
 	wfRow  []byte
-	level  audioLevel // input meter
+	zHist  [][]float64   // the last second of spectrum columns, dB (zero-in)
+	zSpan  spectrum.Span // what they cover
+	zFloor float64       // the band's noise floor, dB
+	level  audioLevel    // input meter
 	wfRate int
 }
 
@@ -568,6 +578,15 @@ func (e *Engine) noteSpecLocked(samples []float32) {
 	}
 	db := spectrum.ColumnsDB(frames[len(frames)-1], e.an.Rate(), e.an.Size(), v.Span)
 	e.specFloor = spectrum.TrackFloor(e.specFloor, spectrum.NoiseMedian(db, v.Span, v.FloorFrom), 0.1, !e.specHave)
+	// The last second of columns, for zero-in (a new span starts over).
+	if e.zSpan != v.Span {
+		e.zHist, e.zSpan = nil, v.Span
+	}
+	e.zHist = append(e.zHist, append([]float64(nil), db...))
+	if len(e.zHist) > 10 {
+		e.zHist = e.zHist[len(e.zHist)-10:]
+	}
+	e.zFloor = e.specFloor
 	e.specHave = true
 	e.wfRow = spectrum.Levels(db, e.specFloor, v.Lift, v.Range)
 	trace := spectrum.Trace(db, e.specFloor, v.Lift, v.Range)

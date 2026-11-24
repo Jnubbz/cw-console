@@ -206,6 +206,16 @@ func (r *rigCtl) do(c catSpec, cmds ...string) ([]string, error) {
 	return r.doAt(c, rig.PriCommand, cmds...)
 }
 
+// doLenient: like do, but a query the rig rejects answers "?;" (see exchangeLenient).
+func (r *rigCtl) doLenient(c catSpec, cmds ...string) ([]string, error) {
+	if c.Port == "" {
+		return nil, errors.New("no CAT port")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return radioBus.exchangeLenient(c.Port, c.Baud, rig.PriCommand, cmds)
+}
+
 func (r *rigCtl) doAt(c catSpec, pri rig.Priority, cmds ...string) ([]string, error) {
 	if c.Port == "" {
 		return nil, errors.New("no CAT port (pick the radio's key port in Setup; on a Yaesu it must be its USB serial port)")
