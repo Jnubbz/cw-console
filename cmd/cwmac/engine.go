@@ -90,6 +90,10 @@ type Settings struct {
 	RigSync     bool           `json:"rigSync"`     // the send speed -> the radio's keyer; the Pitch slider -> its CW pitch
 	BandPower   bool           `json:"bandPower"`   // power remembered per band (home / POTA)
 	PowerByBand map[string]int `json:"powerByBand"` // "home/20m": 50, "pota/20m": 5
+	// FT-991A antenna jacks: no transmitting where nothing is plugged in. HF/50 MHz is
+	// assumed connected (HFAntOff says it isn't); 144/430 MHz only when VHFAnt says so.
+	HFAntOff bool `json:"hfAntOff"`
+	VHFAnt   bool `json:"vhfAnt"`
 
 	// Spectrum display. Zero values mean the mode's own default:
 	// CW keeps the 200–1400 Hz canvas, FT8 keeps 0–3000 Hz at 256 columns.
@@ -204,6 +208,7 @@ type Engine struct {
 	bookSeq   int
 	bookCTY   string
 	liveMeter liveMeter
+	rigFreq   rigFreq // the radio's VFOs, from the state polls: where it would transmit
 
 	wf     *cw.Waterfall // waterfall rows (one per state update)
 	wfRow  []byte
@@ -226,6 +231,7 @@ func newEngine(h *hub) *Engine {
 	e.ft8tx.onLog = e.logFT8
 	e.ft8tx.watch = keying.Watch{Idle: h.idleFor}
 	e.ft8tx.pauseRx = e.cap.setPaused
+	e.ft8tx.guard = e.antennaBlock
 	if e.st.Decoder == "ai" {
 		e.ensureModelLocked()
 	}

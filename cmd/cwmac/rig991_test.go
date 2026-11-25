@@ -174,7 +174,7 @@ func testEngine991(t *testing.T) (*Engine, *fake991) {
 	t.Cleanup(func() { dataDir = "" })
 	port, f := startFake991(t)
 	e := newEngine(newHub())
-	e.applySettings(json.RawMessage(fmt.Sprintf(`{"catPort":%q}`, port)))
+	e.applySettings(json.RawMessage(fmt.Sprintf(`{"catPort":%q,"vhfAnt":true}`, port))) // both antennas on
 	return e, f
 }
 

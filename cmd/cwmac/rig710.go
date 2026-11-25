@@ -275,6 +275,8 @@ func (e *Engine) rigState() rigReply {
 	}
 	ctl, _ := e.readControls(spec, m) // nil if this firmware won't say
 	e.mu.Lock()
+	e.rigFreq.noteState(&st, m.HasVHF(), time.Now())
+	bands := e.bandsWithAntennaLocked(m)
 	e.rp.mu.Lock()
 	extra, note := e.afterRigReadLocked(m, &st, ctl)
 	e.rp.mu.Unlock()
@@ -285,7 +287,7 @@ func (e *Engine) rigState() rigReply {
 	if len(extra) > 0 {
 		cat(extra...)
 	}
-	r := rigReply{State: &st, Controls: ctl, Port: spec.Port, Model: m.Name, Bands: m.Bands(), MaxPowerW: m.MaxPowerAt(st.FreqA), Baud: spec.Baud}
+	r := rigReply{State: &st, Controls: ctl, Port: spec.Port, Model: m.Name, Bands: bands, MaxPowerW: m.MaxPowerAt(st.FreqA), Baud: spec.Baud}
 	if q := m.PCKeyingQuery(); q != "" {
 		if ans, err := cat(q); err == nil && len(ans) == 1 {
 			if v, err := m.ParsePCKeying(ans[0]); err == nil {

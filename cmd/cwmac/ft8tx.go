@@ -84,6 +84,7 @@ type ft8Tx struct {
 	tuning  bool
 	watch   keying.Watch // page-disconnect dead-man; Idle nil in tests that don't set it
 	pauseRx func(bool)   // stop/restart recording around a transmission
+	guard   func() error // nil, or why the rig mustn't be keyed now (no antenna on that band)
 }
 
 func ft8TxAvailable() bool {
@@ -307,6 +308,12 @@ func ft8WaveExternal(msg string, freq int) ([]float32, string, error) {
 // transmit keys the rig and plays the audio. late: how far past the normal start we
 // are (up to ~1.7 s; receivers still decode it, with a larger DT).
 func (x *ft8Tx) transmit(wave []float32, level float64, dev string, line keyLine, abort chan struct{}, maxDur time.Duration, markAll bool) {
+	if _, silent := line.(noKey); !silent && x.guard != nil {
+		if err := x.guard(); err != nil {
+			x.setStatus(err.Error())
+			return
+		}
+	}
 	// receive skips every slot a Tune or test transmits in (a 30 s Tune covers three).
 	// (An FT8 transmission's own slot is marked when it starts.) Slots are numbered on
 	// the corrected clock, as the receiver numbers them.
