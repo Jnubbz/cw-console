@@ -183,6 +183,8 @@ func (e *Engine) storeMeter(cmd, answer string) {
 		if n, err := ft710.MeterRaw(answer, cmd); err == nil {
 			e.liveMeter.swr, e.liveMeter.hasSWR = m.SWR(n), true
 		}
+	default:
+		e.rigFreq.note(answer, m.HasVHF(), time.Now())
 	}
 }
 

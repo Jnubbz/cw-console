@@ -29,11 +29,14 @@ type RadioProfile struct {
 	Pitch       float64 `json:"pitch"`
 	CATType     string  `json:"catType"`
 	CATPort     string  `json:"catPort"`
+	HFAntOff    bool    `json:"hfAntOff"`
+	VHFAnt      bool    `json:"vhfAnt"`
 }
 
 func (s *Settings) profileNow(name string) RadioProfile {
 	return RadioProfile{Name: name, AudioDevice: s.AudioDevice, PlayDevice: s.PlayDevice, TxPort: s.TxPort, TxLine: s.TxLine,
-		RigCtl: s.RigCtl, FT8PTTLine: s.FT8PTTLine, FT8Out: s.FT8Out, FT8Level: s.FT8Level, Pitch: s.Pitch, CATType: s.CATType, CATPort: s.CATPort}
+		RigCtl: s.RigCtl, FT8PTTLine: s.FT8PTTLine, FT8Out: s.FT8Out, FT8Level: s.FT8Level, Pitch: s.Pitch, CATType: s.CATType, CATPort: s.CATPort,
+		HFAntOff: s.HFAntOff, VHFAnt: s.VHFAnt}
 }
 
 // effectivePTT: how the rig is keyed to send audio (FT8, CW as an audio tone). Older
@@ -79,6 +82,7 @@ func (s *Settings) useProfile(p RadioProfile) {
 	s.AudioDevice, s.PlayDevice, s.TxPort, s.TxLine, s.RigCtl = p.AudioDevice, p.PlayDevice, p.TxPort, p.TxLine, p.RigCtl
 	s.FT8PTTLine, s.FT8Out, s.FT8Level, s.CATType = p.FT8PTTLine, p.FT8Out, p.FT8Level, p.CATType
 	s.CATPort = p.CATPort
+	s.HFAntOff, s.VHFAnt = p.HFAntOff, p.VHFAnt
 	if p.Pitch > 0 {
 		s.Pitch = p.Pitch
 	}

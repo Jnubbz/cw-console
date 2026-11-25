@@ -308,6 +308,14 @@ func (t *txEngine) tickLocked() {
 	if a, ok := k.(*audioKeyer); ok { // the tone follows the decoder's pitch and the Level
 		a.configure(t.e.st.Pitch, ft8LevelGain(t.e.st.FT8Level), t.e.st.FT8Out, t.e.cap.device())
 	}
+	if len(t.queue) > 0 && !t.sweeping && !k.Busy() && !k.Active(0) { // an over is about to start
+		if err := t.e.antennaBlockLocked(); err != nil {
+			t.queue = nil
+			t.e.setAutoCQLocked(false)
+			t.e.setNoteLocked(err.Error())
+			return
+		}
+	}
 	if k.Wants() && len(t.queue) > 0 && !t.sweeping {
 		k.SetWPM(t.e.assist.SendWPM(t.e.st.WPM, time.Now())) // Match speed (or the slider)
 		if k.Feed(t.queue[0]) {

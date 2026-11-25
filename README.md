@@ -147,6 +147,13 @@ Where the two radios differ (break-in type is menu 02-01-16 on the FT-710 and 05
 FT-991A; the delay is a step number on one and milliseconds on the other; the width tables and
 IF shift formats differ) the app uses each radio's own form.
 
+### Antennas (FT-991A)
+
+The FT-991A has two antenna jacks, HF/50 MHz and 144/430 MHz. Setup > Radio > Antennas
+says which have an antenna on them (saved with the radio; 144/430 MHz starts unticked).
+The app won't transmit (CW, FT8, Tune, the PTT test) while the radio's transmit
+frequency is on a jack with no antenna, and leaves that jack's band keys off.
+
 ### MCW: CW that FM radios hear (FT-991A)
 
 CW keyed on the key line is a plain carrier: an FM radio hears only its noise go quiet.
